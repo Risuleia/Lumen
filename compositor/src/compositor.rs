@@ -15,8 +15,8 @@ use winit::window::Window;
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct IslandParams {
-    pub scale: f32,
     pub radius: f32,
+    pub refraction: f32,
     pub glow_power: f32,
     pub shadow_power: f32,
 }
@@ -44,7 +44,7 @@ pub struct Compositor<'w> {
     pub region_buffer: Buffer,
     pub bind_layout: BindGroupLayout,
 
-    pub window: &'w Window
+    pub window: &'w Window,
 }
 
 impl<'w> Compositor<'w> {
@@ -81,10 +81,7 @@ impl<'w> Compositor<'w> {
         });
 
         let vertices: [f32; 16] = [
-            -1.0, -1.0, 0.0, 1.0,
-             1.0, -1.0, 1.0, 1.0,
-            -1.0,  1.0, 0.0, 0.0,
-             1.0,  1.0, 1.0, 0.0,
+            -1.0, -1.0, 0.0, 1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0,
         ];
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -96,7 +93,7 @@ impl<'w> Compositor<'w> {
         let bind_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: Some("compositor_bind_layout"),
             entries: &[
-                // refracted
+                // blur texture
                 BindGroupLayoutEntry {
                     binding: 0,
                     visibility: ShaderStages::FRAGMENT,
@@ -107,38 +104,16 @@ impl<'w> Compositor<'w> {
                     },
                     count: None,
                 },
-                // glow
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: TextureViewDimension::D2,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
-                },
-                // shadow
-                BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled: false,
-                        view_dimension: TextureViewDimension::D2,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                    },
-                    count: None,
-                },
                 // sampler
                 BindGroupLayoutEntry {
-                    binding: 3,
+                    binding: 1,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
                 // Island uniform
                 BindGroupLayoutEntry {
-                    binding: 4,
+                    binding: 2,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
@@ -149,7 +124,7 @@ impl<'w> Compositor<'w> {
                 },
                 // Region uniform
                 BindGroupLayoutEntry {
-                    binding: 5,
+                    binding: 3,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
@@ -161,7 +136,7 @@ impl<'w> Compositor<'w> {
             ],
         });
 
-        let shader = device.create_shader_module(include_wgsl!("../shaders/liquid_mask.wgsl"));
+        let shader = device.create_shader_module(include_wgsl!("../shaders/liquid.wgsl"));
 
         let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
             label: Some("compositor_layout"),
@@ -227,40 +202,32 @@ impl<'w> Compositor<'w> {
             param_buffer,
             region_buffer,
             bind_layout,
-            window
+            window,
         })
     }
 
     pub fn set_region(&self, params: RegionParams) {
-        self.queue.write_buffer(
-            &self.region_buffer,
-            0,
-            bytemuck::bytes_of(&params),
-        );
+        self.queue
+            .write_buffer(&self.region_buffer, 0, bytemuck::bytes_of(&params));
     }
 
     pub fn draw(
         &self,
-        shadow: &TextureView,
-        glow: &TextureView,
-        refracted: &TextureView,
-        scale: f32,
+        texture: &TextureView,
         radius: f32,
+        refraction: f32,
         glow_power: f32,
         shadow_power: f32,
     ) -> Result<()> {
         let params = IslandParams {
-            scale,
             radius,
+            refraction,
             glow_power,
             shadow_power,
         };
 
-        self.queue.write_buffer(
-            &self.param_buffer,
-            0,
-            bytemuck::bytes_of(&params),
-        );
+        self.queue
+            .write_buffer(&self.param_buffer, 0, bytemuck::bytes_of(&params));
 
         let frame = self.surface.get_current_texture()?;
         let view = frame.texture.create_view(&TextureViewDescriptor::default());
@@ -268,19 +235,31 @@ impl<'w> Compositor<'w> {
         let bind = self.device.create_bind_group(&BindGroupDescriptor {
             layout: &self.bind_layout,
             entries: &[
-                BindGroupEntry { binding: 0, resource: BindingResource::TextureView(refracted)},
-                BindGroupEntry { binding: 1, resource: BindingResource::TextureView(glow)},
-                BindGroupEntry { binding: 2, resource: BindingResource::TextureView(shadow)},
-                BindGroupEntry { binding: 3, resource: BindingResource::Sampler(&self.sampler)},
-                BindGroupEntry { binding: 4, resource: self.param_buffer.as_entire_binding()},
-                BindGroupEntry { binding: 5, resource: self.region_buffer.as_entire_binding()},
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(texture),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::Sampler(&self.sampler),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: self.param_buffer.as_entire_binding(),
+                },
+                BindGroupEntry {
+                    binding: 3,
+                    resource: self.region_buffer.as_entire_binding(),
+                },
             ],
             label: None,
         });
 
-        let mut encoder = self.device.create_command_encoder(
-            &CommandEncoderDescriptor { label: Some("compositor_encoder") }
-        );
+        let mut encoder = self
+            .device
+            .create_command_encoder(&CommandEncoderDescriptor {
+                label: Some("compositor_encoder"),
+            });
 
         {
             let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
@@ -297,7 +276,7 @@ impl<'w> Compositor<'w> {
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,
-                multiview_mask: None
+                multiview_mask: None,
             });
 
             pass.set_pipeline(&self.pipeline);

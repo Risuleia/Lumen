@@ -39,9 +39,6 @@ fn main() -> Result<()> {
             let window = ui.window();
 
             window.with_winit_window(|w| {
-                // w.set_transparent(true);
-                // w.set_decorations(false);
-
                 if let Ok(handle) = w.window_handle() {
                     if let raw_window_handle::RawWindowHandle::Win32(h) = handle.as_raw() {
                         let hwnd =
@@ -49,7 +46,7 @@ fn main() -> Result<()> {
 
                         unsafe {
                             let width = 300;
-                            let height = 50;
+                            let height = 60;
 
                             setup_window_style(hwnd, width, height);
 
@@ -62,7 +59,7 @@ fn main() -> Result<()> {
                             let screen_width = mi.rcWork.right - mi.rcWork.left;
 
                             let x = (screen_width / 2) - (width / 2);
-                            let y = 0;
+                            let y = 200;
 
                             let _ = SetWindowPos(
                                 hwnd,

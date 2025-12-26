@@ -138,7 +138,7 @@ impl CaptureState {
         Ok(texture)
     }
 
-    fn crop_texture_to_window(
+    fn _crop_texture_to_window(
         d3d_device: &ID3D11Device,
         src_tex: &ID3D11Texture2D,
         hwnd: HWND,
@@ -146,16 +146,14 @@ impl CaptureState {
         unsafe {
             let context = d3d_device.GetImmediateContext()?;
 
-            // 1. Get current window position
             let mut rect = RECT::default();
             GetWindowRect(hwnd, &mut rect)?;
 
             let width = (rect.right - rect.left) as u32;
             let height = (rect.bottom - rect.top) as u32;
 
-            // 2. Create a destination texture of the window's size
             let mut desc = D3D11_TEXTURE2D_DESC::default();
-            src_tex.GetDesc(&mut desc); // Copy monitor format (BGRA8, etc)
+            src_tex.GetDesc(&mut desc);
             desc.Width = width;
             desc.Height = height;
             desc.BindFlags = D3D11_BIND_SHADER_RESOURCE.0 as u32 | D3D11_BIND_RENDER_TARGET.0 as u32;
@@ -164,8 +162,6 @@ impl CaptureState {
             d3d_device.CreateTexture2D(&desc, None, Some(&mut dst_tex))?;
             let dst_tex = dst_tex.unwrap();
 
-            // 3. Define the region to copy (the "hole" where your window is)
-            // Note: Coordinates must be clamped to monitor bounds to avoid crashes
             let region = D3D11_BOX {
                 left: rect.left.max(0) as u32,
                 top: rect.top.max(0) as u32,
@@ -175,7 +171,6 @@ impl CaptureState {
                 back: 1,
             };
 
-            // 4. Perform the crop
             context.CopySubresourceRegion(&dst_tex, 0, 0, 0, 0, src_tex, 0, Some(&region));
 
             Ok(dst_tex)

@@ -12,7 +12,7 @@ impl IslandMotionState {
         Self {
             scale: SpringValue::new(1.0),
             radius: SpringValue::new(1.0),
-            glow: SpringValue::new(0.6),
+            glow: SpringValue::new(0.3),
             shadow: SpringValue::new(0.5)
         }
     }

@@ -24,7 +24,7 @@ pub fn import_d3d11_texture_to_wgpu(
     let hal_device = unsafe { device.as_hal::<Dx12>() }
         .ok_or_else(|| anyhow::anyhow!("DX12 backend required"))?;
 
-    let raw_d3d12_device: ID3D12Device = unsafe { hal_device.raw_device().cast()? };
+    let raw_d3d12_device: ID3D12Device = hal_device.raw_device().cast()?;
 
     let d3d12_resource: ID3D12Resource = unsafe {
         let mut resource: Option<ID3D12Resource> = None;
@@ -81,8 +81,4 @@ pub fn get_shared_handle(tex: &ID3D11Texture2D) -> Result<OwnedHandle> {
     let handle = unsafe { dxgi.CreateSharedHandle(None, GENERIC_ALL.0, None)? };
 
     Ok(unsafe { OwnedHandle::from_raw_handle(handle.0 as _) })
-}
-
-pub fn align_to(value: u32, align: u32) -> u32 {
-    ((value + align - 1) / align) * align
 }

@@ -7,7 +7,6 @@ mod capture;
 mod compositor;
 mod gpu;
 mod motion;
-mod pipelines;
 mod utils;
 
 pub struct LiquidGlassConfig {
@@ -32,16 +31,11 @@ pub struct LiquidGlassEngine<'w> {
 
     pub compositor: compositor::Compositor<'w>,
 
-    pub blur: pipelines::BlurPipeline,
-    pub refraction: pipelines::RefractionPipeline,
-    pub glow: pipelines::GlowPipeline,
-    pub shadow: pipelines::ShadowPipeline,
-
     pub motion: motion::MotionDriver,
 }
 
 impl<'w> LiquidGlassEngine<'w> {
-    pub async fn new(config: LiquidGlassConfig, window: &'w Window) -> Result<Self> {
+    pub async fn new(_config: LiquidGlassConfig, window: &'w Window) -> Result<Self> {
         let gpu = gpu::GpuState::new().await?;
         let capture = capture::CaptureState::new_primary_monitor()?;
 
@@ -61,21 +55,12 @@ impl<'w> LiquidGlassEngine<'w> {
             size,
         )?;
 
-        let blur = pipelines::BlurPipeline::new(&gpu.device, &gpu.queue, size)?;
-        let refraction = pipelines::RefractionPipeline::new(&gpu.device, &gpu.queue, size)?;
-        let glow = pipelines::GlowPipeline::new(&gpu.device, &gpu.queue, size)?;
-        let shadow = pipelines::ShadowPipeline::new(&gpu.device, &gpu.queue, size)?;
-
         let motion = MotionDriver::new();
 
         Ok(Self {
             gpu,
             capture,
             compositor,
-            blur,
-            refraction,
-            glow,
-            shadow,
             motion,
         })
     }
@@ -88,26 +73,18 @@ impl<'w> LiquidGlassEngine<'w> {
         if let Some(frame) = tex_opt {
             let view = self.capture.to_wgpu_view(&self.gpu.device, &frame);
 
-            // let blurred = self.blur.run(&view).unwrap();
-            let refracted = self.refraction.run(&view).unwrap();
-            let glow = self.glow.run().unwrap();
-            let shadow = self.shadow.run().unwrap();
-
             let m = &self.motion.island;
 
             let sz = self.capture.item.Size().unwrap();
 
-            // Get window position + size from winit
             let inner = self.compositor.window.inner_size();
             let pos = self.compositor.window.outer_position().unwrap();
 
-            let scale_factor = self.compositor.window.scale_factor() as f32;
-
             self.compositor.set_region(RegionParams {
-                window_pos: [(pos.x as f32), (pos.y as f32)],
+                window_pos: [pos.x as f32, pos.y as f32],
                 window_size: [
-                    (inner.width as f32),
-                    (inner.height as f32),
+                    inner.width as f32,
+                    inner.height as f32,
                 ],
                 capture_size: [sz.Width as f32, sz.Height as f32],
                 _pad: [0.0, 0.0],
@@ -115,11 +92,9 @@ impl<'w> LiquidGlassEngine<'w> {
 
             self.compositor
                 .draw(
-                    shadow,
-                    glow,
-                    refracted,
-                    m.scale.value,
+                    &view,
                     m.radius.value,
+                    0.02,
                     m.glow.value,
                     m.shadow.value,
                 )
