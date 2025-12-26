@@ -1,5 +1,5 @@
 fn main() {
-    unsafe { std::env::set_var("RUST_BACKTRACE", "full") };
+    println!("cargo:rerun-if-changed=ui/lumen.slint");
 
-    slint_build::compile("ui/base.slint").unwrap();
+    slint_build::compile("ui/lumen.slint").expect("Failed to compile Slint UI");
 }

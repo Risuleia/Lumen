@@ -1,0 +1,31 @@
+[package]
+name = "lumen-compositor"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.92"
+
+[dependencies]
+anyhow = "1.0.100"
+bytemuck = { version = "1.24.0", features = ["derive"] }
+parking_lot = "0.12.5"
+wgpu = "28.0.0"
+windows = { version = "0.62.2", features = [
+  "Foundation",
+
+  "Graphics",
+  "Graphics_Capture",
+  "Graphics_Display",
+  "Graphics_DirectX_Direct3D11",
+
+  "Win32_Foundation",
+  "Win32_System_Com",
+  "Win32_Graphics_Dxgi",
+  "Win32_Graphics_Gdi",
+  "Win32_Graphics_Direct3D11",
+  "Win32_System_WinRT_Direct3D11",
+  "Win32_System_WinRT",
+  "Win32_System_WinRT_Graphics",
+  "Win32_System_WinRT_Graphics_Capture"
+] }
+windows-core = "0.62.2"
+winit = "0.30.12"

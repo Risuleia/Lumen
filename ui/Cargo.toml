@@ -5,9 +5,21 @@ edition = "2024"
 build = "build.rs"
 
 [dependencies]
+anyhow = "1.0.100"
+i-slint-backend-winit = "1.14.1"
 lumen-core = { path = "../core" }
-slint = "1.14.1"
-
+lumen-compositor = { path = "../compositor" }
+raw-window-handle = "0.6.2"
+single-instance = "0.3.3"
+slint = { version = "1.14.1", default-features = false, features = ["compat-1-2", "std", "backend-winit", "renderer-femtovg", "renderer-software"] }
+windows = { version = "0.62.2", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Graphics_Dwm",
+    "Win32_System_LibraryLoader",
+    "Win32_Graphics_Gdi"
+] }
+futures = "0.3.31"
 
 [build-dependencies]
 slint-build = "1.14.1"
