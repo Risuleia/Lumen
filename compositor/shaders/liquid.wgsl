@@ -15,7 +15,7 @@ fn vs_main(
 }
 
 @group(0) @binding(0)
-var blur_tex : texture_2d<f32>;
+var tex : texture_2d<f32>;
 
 @group(0) @binding(1)
 var samp : sampler;
@@ -95,7 +95,7 @@ fn gaussianBlur(coord: vec2<f32>, radius: f32) -> vec3<f32> {
                 vec2<f32>(1.0)
             );
 
-            color += textureSample(blur_tex, samp, uv).rgb * weight;
+            color += textureSample(tex, samp, uv).rgb * weight;
             total += weight;
         }
     }
@@ -121,32 +121,26 @@ fn fs_main(input: VSOut) -> @location(0) vec4<f32> {
 
     // outside → passthrough
     if (inversedSDF < 0.0) {
-        let uv = clamp(frag / region.capture_size,
-            vec2<f32>(0.0), vec2<f32>(1.0));
-        let base = textureSample(blur_tex, samp, uv).rgb;
+        let uv = clamp(
+            frag / region.capture_size,
+            vec2<f32>(0.0), vec2<f32>(1.0)
+        );
+        let base = textureSample(tex, samp, uv).rgb;
         return vec4<f32>(base, 1.0);
     }
 
     let dir = normalize(glass_coord);
 
-    // distortion curve (same as article)
-    let distFromCenter =
-        1.0 - clamp(inversedSDF / 0.3, 0.0, 1.0);
-
-    let distortion =
-        1.0 - sqrt(max(1.0 - distFromCenter * distFromCenter, 0.0));
-
-    let offset =
-        distortion * dir * (glass_size * 0.5);
-
+    // distortion curve
+    let distFromCenter = 1.0 - clamp(inversedSDF / 0.3, 0.0, 1.0);
+    let distortion = 1.0 - sqrt(max(1.0 - distFromCenter * distFromCenter, 0.0));
+    let offset = distortion * dir * (glass_size * 0.5);
     let coord = frag - offset;
 
 
     // ----- Gaussian blur radius -----
     let blurIntensity = 1.2;
-    let blurRadius =
-        blurIntensity * (1.0 - distFromCenter * 0.5);
-
+    let blurRadius = blurIntensity * (1.0 - distFromCenter * 0.5);
 
     // ----- chromatic aberration -----
     let edge = smoothstep(0.0, 0.02, inversedSDF);
@@ -160,20 +154,42 @@ fn fs_main(input: VSOut) -> @location(0) vec4<f32> {
 
     // -------- soft inner rim highlight -------- 
     // thin bright ribbon hugging edge - now wider 
-    // let rim = smoothstep(-8.0, -0.6, dist);
+    let rim = smoothstep(-8.0, -0.6, dist);
 
-    // // Direction basis 
-    // let uv_center = input.uv - vec2<f32>(0.5, 0.5);
-    // let rim_dir = normalize(uv_center);
-    // // Primary bright lobe (top-left) - boosted intensity 
-    // let light_dir = normalize(vec2<f32>(-0.75, -0.65));
-    // let light_strength = clamp(dot(rim_dir, light_dir), 0.0, 1.0); 
-    // let primary = rim * pow(light_strength, 1.8) * 0.6 * params.glow_power;
-    // // Secondary softer lobe (bottom-right) - boosted intensity 
-    // let secondary_dir = normalize(vec2<f32>(0.9, 0.8)); 
-    // let secondary_strength = clamp(dot(rim_dir, secondary_dir), 0.0, 1.0); 
-    // let secondary = rim * pow(secondary_strength, 1.8) * 0.35 * params.glow_power; 
-    // glass += primary + secondary;
+    // Direction basis 
+    let uv_center = input.uv - vec2<f32>(0.5, 0.5);
+    let rim_dir = normalize(uv_center);
+    // Primary bright lobe (top-left) - boosted intensity 
+    let light_dir = normalize(vec2<f32>(-0.75, -0.65));
+    let light_strength = clamp(dot(rim_dir, light_dir), 0.0, 1.0); 
+    let primary = rim * pow(light_strength, 1.8) * 0.6 * params.glow_power;
+    // Secondary softer lobe (bottom-right) - boosted intensity 
+    let secondary_dir = normalize(vec2<f32>(0.9, 0.8)); 
+    let secondary_strength = clamp(dot(rim_dir, secondary_dir), 0.0, 1.0); 
+    let secondary = rim * pow(secondary_strength, 1.8) * 0.35 * params.glow_power; 
+    glass += primary + secondary;
+
+    // ------- adaptive tinting --------
+    let base_uv = clamp(
+        frag / region.capture_size,
+        vec2<f32>(0.0),
+        vec2<f32>(1.0)
+    );
+
+    let bg = textureSample(tex, samp, base_uv).rgb;
+
+    // luminance perception weights
+    let luminance = dot(bg, vec3<f32>(0.299, 0.587, 0.114));
+    let response = smoothstep(0.25, 0.9, luminance);
+
+    // dark tint for bright bg, light tint for dark bg
+    let darkTint = vec3<f32>(0.42, 0.48, 0.58);   // smoked glass
+    let lightTint = vec3<f32>(1.08, 1.08, 1.10);   // gentle lift
+
+    let adaptiveTint = mix(lightTint, darkTint, response);
+
+    // apply
+    glass *= adaptiveTint;
     
     glass *= vec3<f32>(0.90); // tint
 

@@ -1,0 +1,27 @@
+export component MediaView {
+    in property <string> title;
+    in property <string> artist;
+
+    Rectangle {
+        // TEMP DEBUG VISUAL
+        border-width: 1px;
+        border-color: #55ffffff;
+        background: transparent;
+
+        Text {
+            text: title == "" ? "Media Title" : title;
+            color: white;
+            y: 6px;
+            x: 12px;
+            font-size: 12px;
+        }
+
+        Text {
+            text: artist == "" ? "Artist" : artist;
+            color: #cccccc;
+            y: 24px;
+            x: 12px;
+            font-size: 10px;
+        }
+    }
+}

@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{cell::RefCell, rc::Rc, time::Duration};
+use std::{cell::RefCell, rc::Rc, sync::OnceLock, time::Duration};
 
 use anyhow::{Result, anyhow};
 use i_slint_backend_winit::WinitWindowAccessor;
@@ -9,16 +9,27 @@ use raw_window_handle::HasWindowHandle;
 use single_instance::SingleInstance;
 use slint::{ComponentHandle, Timer, TimerMode};
 use windows::Win32::{
-    Foundation::{COLORREF, HWND},
-    Graphics::Gdi::{
-        CreateRoundRectRgn, GetMonitorInfoW, MONITOR_DEFAULTTOPRIMARY, MONITORINFO, MonitorFromWindow, SetWindowRgn
-    },
-    UI::WindowsAndMessaging::{
-        GWL_EXSTYLE, GWL_STYLE, GetWindowLongW, HWND_TOPMOST, LWA_ALPHA, SWP_FRAMECHANGED, SWP_NOZORDER, SetLayeredWindowAttributes, SetWindowDisplayAffinity, SetWindowLongW, SetWindowPos, WDA_EXCLUDEFROMCAPTURE, WS_CAPTION, WS_EX_CLIENTEDGE, WS_EX_DLGMODALFRAME, WS_EX_LAYERED, WS_EX_STATICEDGE, WS_THICKFRAME
-    },
+    Graphics::Gdi::{GetMonitorInfoW, MONITOR_DEFAULTTOPRIMARY, MONITORINFO, MonitorFromWindow},
+    UI::WindowsAndMessaging::{HWND_TOPMOST, SWP_FRAMECHANGED, SWP_NOZORDER, SetWindowPos},
 };
 
+use crate::{mode::IslandVisualMode, utils::setup_window_style};
+
 slint::include_modules!();
+
+mod mode;
+mod utils;
+
+// ------------------- GLOBALS -------------------
+
+static UI_WEAK: OnceLock<slint::Weak<LumenOverlay>> = OnceLock::new();
+
+thread_local! {
+    static LIQUID_GLASS_ENGINE: RefCell<Option<Rc<RefCell<LiquidGlassEngine<'static>>>>> =
+        RefCell::new(None);
+}
+
+// ---------------------- MAIN ----------------------
 
 fn main() -> Result<()> {
     let instance = SingleInstance::new("io.risuleia.lumen").unwrap();
@@ -30,10 +41,171 @@ fn main() -> Result<()> {
 
     let ui = LumenOverlay::new().unwrap();
     let weak = ui.as_weak();
+    let _ = UI_WEAK.set(weak.clone());
 
-    let engine_cell: Rc<RefCell<Option<LiquidGlassEngine>>> = Rc::new(RefCell::new(None));
-    let engine_setup_ref = engine_cell.clone();
+    // ---------------- CORE THREAD ----------------
+    std::thread::spawn(|| {
+        let rt = tokio::runtime::Runtime::new().unwrap();
 
+        rt.block_on(async {
+            let mut core = lumen_core::IslandCore::new();
+            let mut rx = core.subscribe();
+
+            tokio::spawn(async move {
+                core.start().await;
+            });
+
+            while let Ok(event) = rx.recv().await {
+                match event {
+                    lumen_core::CoreEvent::StateChanged(state) => {
+                        let _ = slint::invoke_from_event_loop(move || {
+                            if let Some(ui) = UI_WEAK.get().and_then(|w| w.upgrade()) {
+                                let visual = match state {
+                                    lumen_core::IslandState::IdleDormant => {
+                                        IslandVisualMode::Dormant
+                                    }
+                                    lumen_core::IslandState::BriefPulse(_) => {
+                                        IslandVisualMode::Pulse
+                                    }
+                                    lumen_core::IslandState::ActiveWidget(_) => {
+                                        IslandVisualMode::Activity
+                                    }
+                                    lumen_core::IslandState::PrivacyIndicator(_) => {
+                                        IslandVisualMode::Privacy
+                                    }
+                                    lumen_core::IslandState::ControlCenter => {
+                                        IslandVisualMode::Activity
+                                    }
+                                };
+
+                                match state {
+                                    lumen_core::IslandState::IdleDormant => ui.set_mode(IslandMode::Idle),
+                                    lumen_core::IslandState::ActiveWidget(lumen_core::ActivityKind::Media) => {
+                                        ui.set_mode(IslandMode::Media);
+                                        println!("some song");
+                                    }
+                                    lumen_core::IslandState::PrivacyIndicator(lumen_core::PrivacyKind::Microphone) => {
+                                        ui.set_mode(IslandMode::Mic);
+                                        println!("mic received");
+                                    }
+                                    lumen_core::IslandState::PrivacyIndicator(lumen_core::PrivacyKind::Camera) => {
+                                        ui.set_mode(IslandMode::Camera);
+                                        println!("cam received");
+                                    }
+                                    _ => {}
+                                }
+
+                                LIQUID_GLASS_ENGINE.with(|slot| {
+                                    if let Some(engine) = slot.borrow().as_ref() {
+                                        let mut e = engine.borrow_mut();
+
+                                        match visual {
+                                            IslandVisualMode::Dormant => {
+                                                e.motion.island.set_idle();
+                                            }
+
+                                            IslandVisualMode::Pulse => {
+                                                e.motion.island.set_expanded(); // or custom pulse
+                                            }
+
+                                            IslandVisualMode::Activity => {
+                                                e.motion.island.set_expanded();
+                                            }
+
+                                            IslandVisualMode::Privacy => {
+                                                e.motion.island.set_expanded();
+                                            }
+                                        }
+                                    }
+                                });
+
+                                // TODO: call compositor here:
+                                // apply_visual_mode(visual);
+                                println!("UI → VISUAL = {:?}", visual);
+                            }
+                        });
+                    }
+
+                    lumen_core::CoreEvent::VisualizerFrame(level) => {
+                        let _ = slint::invoke_from_event_loop(move || {
+                            LIQUID_GLASS_ENGINE.with(|slot| {
+                                if let Some(engine) = slot.borrow().as_ref() {
+                                    let mut e = engine.borrow_mut();
+
+                                    // Drive motion
+                                    // let m = &mut e.motion.island;
+
+                                    // Subtle but alive
+                                    let glow = 0.4 + (level * 0.6);
+                                    let radius = 1.0 - (level * 0.2);
+                                    let scale = 1.0 + (level * 0.12);
+
+                                    // println!("{}-{}-{}", glow, radius, scale);
+
+                                    // m.glow.set(glow);
+                                    // m.radius.set(radius);
+                                    // m.scale.set(scale);
+                                }
+                            });
+                        });
+                    }
+                    lumen_core::CoreEvent::MicActive(level) => {
+                        let _ = slint::invoke_from_event_loop(move || {
+                            LIQUID_GLASS_ENGINE.with(|slot| {
+                                if let Some(engine) = slot.borrow().as_ref() {
+                                    let mut e = engine.borrow_mut();
+                                    let m = &mut e.motion.island;
+
+                                    m.glow.set(0.8 + level * 0.5);
+                                    m.scale.set(1.05 + level * 0.1);
+                                    m.radius.set(0.85);
+                                }
+                            });
+                        });
+                    }
+                    lumen_core::CoreEvent::MicIdle => {
+                        let _ = slint::invoke_from_event_loop(move || {
+                            LIQUID_GLASS_ENGINE.with(|slot| {
+                                if let Some(engine) = slot.borrow().as_ref() {
+                                    let mut e = engine.borrow_mut();
+                                    e.motion.island.set_idle();
+                                }
+                            });
+                        });
+                    }
+                    lumen_core::CoreEvent::CameraActive => {
+                        let _ = slint::invoke_from_event_loop(|| {
+                            LIQUID_GLASS_ENGINE.with(|slot| {
+                                if let Some(engine) = slot.borrow().as_ref() {
+                                    let mut e = engine.borrow_mut();
+                                    let m = &mut e.motion.island;
+
+                                    m.scale.set(1.12);
+                                    m.radius.set(0.75);
+                                    m.glow.set(1.2);
+                                }
+                            });
+                        });
+                    }
+
+                    lumen_core::CoreEvent::CameraIdle => {
+                        let _ = slint::invoke_from_event_loop(|| {
+                            LIQUID_GLASS_ENGINE.with(|slot| {
+                                if let Some(engine) = slot.borrow().as_ref() {
+                                    let mut e = engine.borrow_mut();
+                                    e.motion.island.set_idle();
+                                }
+                            });
+                        });
+                    }
+
+                    _ => {}
+                }
+            }
+        });
+    });
+
+    // -------- LIQUID GLASS INIT ----------
     slint::Timer::single_shot(Duration::from_millis(60), move || {
         if let Some(ui) = weak.upgrade() {
             let window = ui.window();
@@ -59,7 +231,7 @@ fn main() -> Result<()> {
                             let screen_width = mi.rcWork.right - mi.rcWork.left;
 
                             let x = (screen_width / 2) - (width / 2);
-                            let y = 200;
+                            let y = 20;
 
                             let _ = SetWindowPos(
                                 hwnd,
@@ -74,12 +246,17 @@ fn main() -> Result<()> {
                             let window_static: &'static _ =
                                 std::mem::transmute::<&_, &'static _>(w);
 
-                            let mut slot = engine_setup_ref.borrow_mut();
-                            *slot = Some(futures::executor::block_on(async {
+                            let engine = futures::executor::block_on(async {
                                 LiquidGlassEngine::new(LiquidGlassConfig::default(), window_static)
                                     .await
-                                    .unwrap()
-                            }))
+                            })
+                            .unwrap();
+
+                            let rc = Rc::new(RefCell::new(engine));
+
+                            LIQUID_GLASS_ENGINE.with(|slot| {
+                                *slot.borrow_mut() = Some(rc.clone());
+                            });
                         }
                     }
                 } else {
@@ -91,40 +268,20 @@ fn main() -> Result<()> {
         }
     });
 
-    let tick_engine_ref = engine_cell.clone();
+    // -------- ENGINE TICK ----------
     let tick_timer = Rc::new(RefCell::new(Timer::default()));
 
-    let t = tick_timer.clone();
-    t.borrow_mut().start(
-        TimerMode::Repeated,
-        Duration::from_millis(16), // ~60 FPS
-        move || {
-            if let Some(engine) = tick_engine_ref.borrow_mut().as_mut() {
-                engine.tick();
-            }
-        },
-    );
+    tick_timer
+        .borrow_mut()
+        .start(TimerMode::Repeated, Duration::from_millis(16), move || {
+            LIQUID_GLASS_ENGINE.with(|slot| {
+                if let Some(engine) = slot.borrow().as_ref() {
+                    engine.borrow_mut().tick();
+                }
+            });
+        });
 
-    eprintln!("MAIN: running UI");
+    println!("MAIN: running UI");
     ui.run()?;
     Ok(())
-}
-
-unsafe fn setup_window_style(hwnd: HWND, width: i32, height: i32) {
-    let mut style = unsafe { GetWindowLongW(hwnd, GWL_STYLE) } as u32;
-    style &= !(WS_CAPTION.0 | WS_THICKFRAME.0);
-    unsafe { SetWindowLongW(hwnd, GWL_STYLE, style as i32) };
-
-    let mut ex = unsafe { GetWindowLongW(hwnd, GWL_EXSTYLE) } as u32;
-    ex &= !(WS_EX_DLGMODALFRAME.0 | WS_EX_CLIENTEDGE.0 | WS_EX_STATICEDGE.0);
-    ex |= WS_EX_LAYERED.0;
-    unsafe { SetWindowLongW(hwnd, GWL_EXSTYLE, ex as i32) };
-
-    let h_rgn = unsafe { CreateRoundRectRgn(0, 0, width, height, 26 * 2, 26 * 2) };
-    if !h_rgn.is_invalid() {
-        unsafe { SetWindowRgn(hwnd, Some(h_rgn), true) };
-    }
-
-    let _ = unsafe { SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE) };
-    let _ = unsafe { SetLayeredWindowAttributes(hwnd, COLORREF(0), 255, LWA_ALPHA) };
 }

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use winit::window::Window;
+use winit::{dpi::{PhysicalPosition, PhysicalSize}, window::Window};
 
 use crate::{compositor::RegionParams, motion::MotionDriver};
 
@@ -100,5 +100,17 @@ impl<'w> LiquidGlassEngine<'w> {
                 )
                 .unwrap();
         }
+    }
+
+    pub fn set_island_visual(
+        &mut self,
+        width: u32,
+        height: u32,
+    ) {
+        let window = &self.compositor.window;
+        let pos = window.outer_position().unwrap();
+
+        window.set_outer_position(PhysicalPosition::new(pos.x, pos.y));
+        window.set_min_inner_size(Some(PhysicalSize::new(width, height)));
     }
 }

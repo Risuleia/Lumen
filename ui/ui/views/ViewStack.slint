@@ -1,0 +1,34 @@
+import { IdleView } from "IdleView.slint";
+import { MediaView } from "MediaView.slint";
+import { MicView } from "MicView.slint";
+import { CameraView } from "CameraView.slint";
+
+export enum IslandMode {
+    Idle,
+    Media,
+    Mic,
+    Camera
+}
+
+export component ViewStack {
+    in property <IslandMode> mode;
+
+    IdleView {
+        visible: mode == IslandMode.Idle;
+    }
+
+    // Media
+    MediaView {
+        visible: mode == IslandMode.Media;
+    }
+
+    // Mic
+    MicView {
+        visible: mode == IslandMode.Mic;
+    }
+
+    // Camera
+    CameraView {
+        visible: mode == IslandMode.Camera;
+    }
+}

@@ -1,14 +1,11 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+mod engine;
+mod events;
+mod state;
+mod sources;
+mod media;
+mod audio;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use state::*;
+pub use events::*;
+pub use engine::*;
+pub use media::start_media_thread;

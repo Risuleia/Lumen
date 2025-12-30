@@ -1,3 +1,10 @@
+import { ViewStack, IslandMode } from "views/ViewStack.slint";
 export component LumenOverlay inherits Window {
-    background: transparent;
+    in property <IslandMode> mode;
+
+    always-on-top: true;
+
+    ViewStack {
+        mode: root.mode;
+    }
 }

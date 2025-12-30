@@ -1,0 +1,14 @@
+export component CameraView {
+    in property <string> app_name;
+
+    Rectangle {
+        background: transparent;
+
+        Text {
+            text: app_name == "" ? "Camera Active" : app_name;
+            color: white;
+            x: 12px;
+            y: 12px;
+        }
+    }
+}
