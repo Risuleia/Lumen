@@ -1,0 +1,268 @@
+import { SpectrumBars } from "../components/SpectrumBars.slint";
+import { IslandData } from "../global.slint";
+import { Metrics } from "../theme/Metrics.slint";
+import { Colors } from "../theme/Colors.slint";
+import { Assets } from "../global.slint";
+
+component CollapsedMedia inherits HorizontalLayout {
+    alignment: space-between;
+
+    Rectangle {
+        y: (parent.height - self.height) / 2;
+        
+        height: parent.height;
+        width: parent.height;
+        border-radius: 4px;
+        clip: true;
+
+        Image {
+            width: parent.width;
+            height: parent.height;
+            source: IslandData.media.album-art;
+        }
+    }
+
+    SpectrumBars {
+        y: (parent.height - self.height) / 2;
+    }
+}
+
+
+component MediaControls inherits HorizontalLayout {
+    spacing: 1rem;
+
+    property <length> size: 60px;
+    
+    prev := Rectangle {
+        width: 32px; 
+        height: 32px; 
+
+        Image {
+            width: parent.width;
+            height: parent.height;
+            source: Assets.prev-img;
+        }
+
+        TouchArea {
+            width: parent.width;
+            height: parent.height;
+            mouse-cursor: pointer;
+
+            clicked => {
+                IslandData.action("previous", "")
+            }
+        }
+    }
+    play-pause := Rectangle {
+        width: 32px; 
+        height: 32px; 
+
+        Image {
+            width: parent.width;
+            height: parent.height;
+            source: IslandData.media.playing ? Assets.pause-img : Assets.play-img;
+        }
+
+        TouchArea {
+            width: parent.width;
+            height: parent.height;
+            mouse-cursor: pointer;
+            
+            clicked => {
+                IslandData.action(IslandData.media.playing ? "pause" : "play", "")
+            }
+        }
+    }
+
+    next := Rectangle {
+        width: 32px; 
+        height: 32px; 
+
+        Image {
+            width: parent.width;
+            height: parent.height;
+            source: Assets.next-img;
+        }
+        
+        TouchArea {
+            width: parent.width;
+            height: parent.height;
+            mouse-cursor: pointer;
+            
+            clicked => {
+                IslandData.action("next", "")
+            }
+        }
+    }
+}
+
+component ExpandedMedia inherits VerticalLayout {
+    alignment: space-between;
+
+    // Header Row
+    HorizontalLayout {
+        width: parent.width;
+        alignment: start;
+        spacing: 8px;
+        vertical-stretch: 0;
+        
+        Rectangle {
+            y: (parent.height - self.height) / 2;
+            
+            height: 18px;
+            width: 18px;
+            border-radius: 2px;
+            clip: true;
+
+            Image {
+                width: parent.width;
+                height: parent.height;
+                source: IslandData.media.app-icon;
+            }
+        }
+
+        Text {
+            text: IslandData.media.app-name;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            color: Colors.text-primary;
+            font-size: Metrics.fs-100;
+            font-weight: 500;
+            overflow: elide;
+            letter-spacing: -0.2px;
+        }
+    }
+
+    HorizontalLayout {
+        width: parent.width;
+        spacing: 1.5rem;
+
+        Rectangle {
+            horizontal-stretch: 0;
+            width: 80px;
+            height: 80px;
+            border-radius: 16px;
+            clip: true;
+
+            Image {
+                width: parent.width;
+                height: parent.height;
+                source: IslandData.media.album-art;
+            }
+        }
+
+        VerticalLayout {
+            width: parent.width;
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 4px;
+
+            Text {
+                font-size: Metrics.fs-150;
+                text: IslandData.media.title.is-empty ? "(unnamed title)" : IslandData.media.title;
+                font-weight: 700;
+                horizontal-alignment: left;
+                letter-spacing: -0.2px;
+                overflow: clip;
+            }
+            Text {
+                font-size: Metrics.fs-120;
+                text: IslandData.media.album.is-empty ? "(unnamed album)" : IslandData.media.album;
+                color: Colors.text-primary;
+                horizontal-alignment: left;
+                letter-spacing: -0.2px;
+                overflow: clip;
+            }
+            Text {
+                font-size: Metrics.fs-120;
+                text: IslandData.media.artist.is-empty ? "(unnamed artist)" : IslandData.media.artist;
+                color: Colors.text-secondary;
+                horizontal-alignment: left;
+                letter-spacing: -0.2px;
+                overflow: clip;
+            }
+        }
+    }
+
+    VerticalLayout {
+        horizontal-stretch: 1;
+        vertical-stretch: 0;
+        spacing: 8px;
+        alignment: center;
+
+        HorizontalLayout {
+            alignment: space-between;
+            vertical-stretch: 0;
+
+            pure function pad-zero(n: int) -> string {
+                return n < 10 ? "0\{n}" : "\{n}";
+            }
+
+            pure function format-ms(ms: int) -> string {
+                let total-s: int = ms / 1000;
+                let s: int = Math.mod(total-s, 60);
+                let total-m: int = total-s / 60;
+                let m: int = Math.mod(total-m, 60);
+                let h: int = total-m / 60;
+
+                if (h > 0) {
+                    return "\{h}:\{pad-zero(m)}:\{pad-zero(s)}";
+                } else {
+                    return "\{m}:\{pad-zero(s)}";
+                }
+            }
+
+            Text {
+                text: format-ms(IslandData.media.position-ms);
+                font-size: Metrics.fs-100;
+                color: Colors.text-secondary;
+                letter-spacing: -0.2px;
+                vertical-alignment: bottom;
+            }
+
+            media-controls := MediaControls {}
+
+            Text {
+                text: format-ms(IslandData.media.duration-ms);
+                font-size: Metrics.fs-100;
+                color: Colors.text-secondary;
+                letter-spacing: -0.2px;
+                vertical-alignment: bottom;
+            }
+        }
+
+        // Progress bar
+        Rectangle {
+            height: 4px;
+            border-radius: 2px;
+            width: parent.width;
+            background: #ffffff30;
+
+            property <float> progress: IslandData.media.duration-ms > 0 ? 
+                                        IslandData.media.position-ms * 1.0 / IslandData.media.duration-ms * 1.0
+                                        : 0;
+            
+            Rectangle {
+                height: parent.height;
+                border-radius: parent.border-radius;
+                width: parent.width * progress;
+                background: #fff;
+                x: 0;
+            }
+        }
+    }
+}
+
+export component Media inherits Rectangle {
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    
+    if IslandData.expanded: ExpandedMedia {
+        width: root.width;
+        height: root.height;
+    }
+    if !IslandData.expanded: CollapsedMedia {
+        width: root.width;
+        height: root.height;
+    }
+}

@@ -1,0 +1,46 @@
+import { Island } from "Island.slint";
+import { Notification, Media, Idle } from "layouts/index.slint";
+import { Indicator, SpectrumBars } from "components/index.slint";
+import { IslandContent } from "types.slint";
+import { IslandData, MediaState, NotificationState, Assets } from "global.slint";
+import { Colors } from "theme/Colors.slint";
+import { Metrics } from "theme/Metrics.slint";
+
+export { IslandData, Assets }
+
+import "../assets/Satoshi-Light.otf";
+
+export component Shell inherits Window {
+    in property <length> island-width;
+    in property <length> island-height;
+    in property <length> island-radius;
+
+    in property <length> island-y;
+
+    callback spectrum-tick();
+
+    background: transparent;
+
+    default-font-family: "Satoshi Light";
+    default-font-weight: 400;
+
+    Island {
+        width: island-width;
+        height: island-height;
+
+        radius: island-radius;
+
+        y-anchor: island-y;
+
+        x: (parent.width - self.width) / 2;
+    }
+
+    Timer {
+        interval: 33ms;
+        running: true;
+
+        triggered => {
+            root.spectrum-tick()
+        }
+    }
+}

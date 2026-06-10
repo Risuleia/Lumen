@@ -15,17 +15,18 @@ use winit::window::Window;
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct IslandParams {
-    pub radius: f32,
+    pub blur_strength: f32,
     pub refraction: f32,
     pub glow_power: f32,
     pub shadow_power: f32,
+    pub radius: f32,
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct RegionParams {
-    pub window_pos: [f32; 2],
-    pub window_size: [f32; 2],
+    pub island_pos: [f32; 2],
+    pub island_size: [f32; 2],
     pub capture_size: [f32; 2],
     pub _pad: [f32; 2],
 }
@@ -214,16 +215,18 @@ impl<'w> Compositor<'w> {
     pub fn draw(
         &self,
         texture: &TextureView,
-        radius: f32,
         refraction: f32,
         glow_power: f32,
+        blur_strength: f32,
         shadow_power: f32,
+        radius: f32
     ) -> Result<()> {
         let params = IslandParams {
-            radius,
             refraction,
             glow_power,
             shadow_power,
+            blur_strength,
+            radius
         };
 
         self.queue

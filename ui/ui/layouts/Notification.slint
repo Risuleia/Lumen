@@ -1,0 +1,144 @@
+import { IslandData } from "../global.slint";
+import { Metrics } from "../theme/Metrics.slint";
+import { Colors } from "../theme/Colors.slint";
+
+component CollapsedNotification inherits HorizontalLayout {
+    alignment: start;
+    spacing: 1rem;
+
+    Rectangle {
+        horizontal-stretch: 0;
+        height: 32px;
+        width: 32px;
+        border-radius: 2px;
+        clip: true;
+        y: (parent.height - self.height) / 2;
+
+        Image {
+            width: parent.width;
+            height: parent.height;
+            source: IslandData.notification.image;
+        }
+    }
+
+    VerticalLayout {
+        horizontal-stretch: 1;
+        vertical-stretch: 1;
+        alignment: center;
+
+        Text {
+            text: IslandData.notification.title;
+            overflow: elide;
+            font-size: Metrics.fs-125;
+            color: Colors.text-primary;
+            horizontal-alignment: left;
+            letter-spacing: -0.2px;
+        }
+        Text {
+            text: IslandData.notification.body;
+            overflow: elide;
+            font-size: Metrics.fs-120;
+            color: Colors.text-secondary;
+            horizontal-alignment: left;
+            letter-spacing: -0.2px;
+        }
+    }
+}
+
+component ExpandedNotification inherits VerticalLayout {
+    alignment: start;
+    spacing: 1rem;
+
+    HorizontalLayout {
+        width: parent.width;
+        alignment: start;
+        spacing: 8px;
+        vertical-stretch: 0;
+        
+        Rectangle {
+            y: (parent.height - self.height) / 2;
+            
+            height: 18px;
+            width: 18px;
+            border-radius: 2px;
+            clip: true;
+
+            Image {
+                width: parent.width;
+                height: parent.height;
+                source: IslandData.notification.image;
+            }
+        }
+
+        Text {
+            text: IslandData.notification.app-name;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            color: Colors.text-primary;
+            font-size: Metrics.fs-100;
+            font-weight: 500;
+            overflow: elide;
+            letter-spacing: -0.2px;
+        }
+    }
+
+    HorizontalLayout {
+        vertical-stretch: 1;
+        spacing: 1.5rem;
+
+        Rectangle {
+            horizontal-stretch: 0;
+            height: 80px;
+            width: 80px;
+            border-radius: 2px;
+            clip: true;
+    
+            Image {
+                width: parent.width;
+                height: parent.height;
+                source: IslandData.notification.image;
+            }
+        }
+    
+        VerticalLayout {
+            alignment: start;
+            spacing: 4px;
+            
+            Text {
+                vertical-stretch: 0;
+                text: IslandData.notification.title;
+                overflow: clip;
+                font-size: Metrics.fs-150;
+                font-weight: 600;
+                color: Colors.text-primary;
+                horizontal-alignment: left;
+                letter-spacing: -0.2px;
+            }
+
+            Text {
+                vertical-stretch: 1;
+                text: IslandData.notification.body;
+                overflow: elide;
+                font-size: Metrics.fs-125;
+                color: Colors.text-secondary;
+                horizontal-alignment: left;
+                letter-spacing: -0.2px;
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
+export component Notification inherits Rectangle {
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+
+    if IslandData.expanded: ExpandedNotification {
+        width: root.width;
+        height: root.height;
+    }
+    if !IslandData.expanded: CollapsedNotification {
+        width: root.width;
+        height: root.height;
+    }
+}

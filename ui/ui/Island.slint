@@ -1,0 +1,98 @@
+import { Colors } from "theme/Colors.slint";
+import { Metrics } from "theme/Metrics.slint";
+import { IslandContent } from "types.slint";
+import { Idle, Media, Notification } from "layouts/index.slint";
+import { IndicatorLayer } from "IndicatorLayer.slint";
+import { IslandData } from "global.slint";
+
+export component Island inherits Rectangle {
+    in property <IslandContent> content: IslandData.content;
+
+    in property <length> y-anchor;
+    in property <length> radius;
+
+    background: Colors.island-bg;
+    border-color: Colors.island-border;
+    border-width: Metrics.border-width;
+    border-radius: radius;
+    clip: true;
+
+    private property <bool> has-active-content: root.content != IslandContent.Idle || IslandData.mic || IslandData.camera;
+    private property <bool> timer-expired: false;
+    
+    y: root.has-active-content 
+        ? (IslandData.expanded || ta.has-hover || !root.timer-expired)
+            ? ((IslandData.mic || IslandData.camera) && content == IslandContent.Idle ? 8px : root.y-anchor)
+            : -(root.height - 8px)
+        : root.y-anchor;
+
+    animate width, height, y {
+        duration: 450ms;
+        easing: ease-in-out;
+    }
+
+    visibility-timer := Timer {
+        interval: 4000ms;
+        triggered => {
+            if (!ta.has-hover && !IslandData.expanded) {
+                root.timer-expired = true;
+                self.running = false;
+            }
+        }
+    }
+
+    private property <int> state-trigger: 
+        (root.content == IslandContent.Idle ? 0 : root.content == IslandContent.Media ? 1 : 2)
+        + (IslandData.mic ? 10 : 0)
+        + (IslandData.camera ? 20 : 0)
+        + (IslandData.expanded ? 40 : 0);
+
+    changed state-trigger => {
+        if (IslandData.expanded) {
+            visibility-timer.running = false;
+            root.timer-expired = false;
+        } else if (root.has-active-content) {
+            visibility-timer.running = true;
+            root.timer-expired = false;
+        } else {
+            visibility-timer.running = false;
+            root.timer-expired = true;
+        }
+    }
+
+    HorizontalLayout {
+        width: parent.width;
+        height: parent.height;
+        
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+        padding-top: IslandData.expanded ? 1.5rem : 0.8rem;
+        padding-bottom: IslandData.expanded ? 1.5rem : 0.8rem;
+
+        spacing: 1.5rem;
+
+        if content == IslandContent.Idle: Idle {}
+        if content == IslandContent.Media: Media {}
+        if content == IslandContent.Notification: Notification {}
+    
+        if !IslandData.expanded && (IslandData.mic || IslandData.camera): IndicatorLayer {}
+    }
+
+    ta := TouchArea {
+        width: parent.width;
+        height: parent.height;
+
+        changed has-hover => {
+            if (!self.has-hover && root.has-active-content && !IslandData.expanded) {
+                root.timer-expired = true;
+                visibility-timer.running = false;
+            }
+        }
+
+        clicked => {
+            if (root.content != IslandContent.Idle) {
+                IslandData.action("expand", "true")
+            }
+        }
+    }
+}

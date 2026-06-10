@@ -1,0 +1,56 @@
+import { IslandContent } from "types.slint";
+
+export struct MediaState {
+    app-name: string,
+    app-icon: image,
+
+    title: string,
+    artist: string,
+    album: string,
+
+    album-art: image,
+
+    playing: bool,
+
+    duration-ms: int,
+    position-ms: int,
+}
+
+export struct NotificationState {
+    app-name: string,
+    image: image,
+
+    title: string,
+    body: string
+}
+
+export global IslandData {
+    in-out property <bool> expanded;
+
+    in property <bool> mic;
+    in property <bool> camera;
+
+    in property <IslandContent> content;
+
+    in property <MediaState> media;
+    in property <NotificationState> notification: {
+        app-name: "(unnamed app)",
+        image: Assets.fallback-app,
+        title: "(unnamed title)",
+        body: "(unnamed body)"
+    };
+
+    in property <[float]> spectrum;
+
+    callback action(name: string, payload: string);
+}
+
+export global Assets {
+    out property <image> fallback-app: @image-url("../assets/app.png");
+    out property <image> fallback-media: @image-url("../assets/media.png");
+
+    out property <image> play-img: @image-url("../assets/play.png");
+    out property <image> pause-img: @image-url("../assets/pause.png");
+    out property <image> prev-img: @image-url("../assets/prev.png");
+    out property <image> next-img: @image-url("../assets/next.png");
+}

@@ -21,18 +21,19 @@ var tex : texture_2d<f32>;
 var samp : sampler;
 
 struct IslandParams {
-    radius : f32,
+    blur_strength: f32,
     refraction : f32,
     glow_power : f32,
     shadow_power : f32,
+    radius : f32,
 };
 
 @group(0) @binding(2)
 var<uniform> params : IslandParams;
 
 struct RegionParams {
-    window_pos : vec2<f32>,
-    window_size : vec2<f32>,
+    island_pos : vec2<f32>,
+    island_size : vec2<f32>,
     capture_size : vec2<f32>,
     _pad : vec2<f32>,
 };
@@ -43,12 +44,12 @@ var<uniform> region : RegionParams;
 
 // -------------------- SDF --------------------
 fn roundrect_sdf(uv: vec2<f32>) -> f32 {
-    let p = uv * region.window_size - region.window_size * 0.5;
+    let p = uv * region.island_size - region.island_size * 0.5;
 
-    let hx = region.window_size.x * 0.5;
-    let hy = region.window_size.y * 0.5;
+    let hx = region.island_size.x * 0.5;
+    let hy = region.island_size.y * 0.5;
 
-    let r = 26.0;
+    let r = params.radius;
 
     let q = abs(p) - vec2<f32>(hx - r, hy - r);
     return length(max(q, vec2<f32>(0.0))) - r;
@@ -107,12 +108,12 @@ fn gaussianBlur(coord: vec2<f32>, radius: f32) -> vec3<f32> {
 @fragment
 fn fs_main(input: VSOut) -> @location(0) vec4<f32> {
     let frag = vec2<f32>(
-        region.window_pos.x + input.uv.x * region.window_size.x,
-        region.window_pos.y + input.uv.y * region.window_size.y
+        region.island_pos.x + input.uv.x * region.island_size.x,
+        region.island_pos.y + input.uv.y * region.island_size.y
     );
 
-    let glass_size = region.window_size;
-    let glass_center = region.window_pos + glass_size * 0.5;
+    let glass_size = region.island_size;
+    let glass_center = region.island_pos + glass_size * 0.5;
     let glass_coord = frag - glass_center;
 
     let size = min(glass_size.x, glass_size.y);
@@ -139,8 +140,7 @@ fn fs_main(input: VSOut) -> @location(0) vec4<f32> {
 
 
     // ----- Gaussian blur radius -----
-    let blurIntensity = 1.2;
-    let blurRadius = blurIntensity * (1.0 - distFromCenter * 0.5);
+    let blurRadius = params.blur_strength * (1.0 - distFromCenter * 0.5);
 
     // ----- chromatic aberration -----
     let edge = smoothstep(0.0, 0.02, inversedSDF);

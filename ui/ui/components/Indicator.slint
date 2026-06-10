@@ -1,0 +1,9 @@
+export component Indicator inherits Rectangle {
+    in property <color> indicator-color;
+
+    height: 12px;
+    width: 12px;
+    border-radius: self.height / 2;
+
+    background: indicator-color;
+}

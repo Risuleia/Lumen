@@ -32,6 +32,8 @@ pub struct LiquidGlassEngine<'w> {
     pub compositor: compositor::Compositor<'w>,
 
     pub motion: motion::MotionDriver,
+
+    pub corner_radius: f32
 }
 
 impl<'w> LiquidGlassEngine<'w> {
@@ -62,6 +64,7 @@ impl<'w> LiquidGlassEngine<'w> {
             capture,
             compositor,
             motion,
+            corner_radius: 26.0
         })
     }
 
@@ -81,8 +84,8 @@ impl<'w> LiquidGlassEngine<'w> {
             let pos = self.compositor.window.outer_position().unwrap();
 
             self.compositor.set_region(RegionParams {
-                window_pos: [pos.x as f32, pos.y as f32],
-                window_size: [
+                island_pos: [pos.x as f32, pos.y as f32],
+                island_size: [
                     inner.width as f32,
                     inner.height as f32,
                 ],
@@ -97,6 +100,7 @@ impl<'w> LiquidGlassEngine<'w> {
                     0.02,
                     m.glow.value,
                     m.shadow.value,
+                    self.corner_radius
                 )
                 .unwrap();
         }

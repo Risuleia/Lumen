@@ -1,0 +1,28 @@
+import { IslandData } from "global.slint";
+import { Indicator } from "components/Indicator.slint";
+
+component MicIndicator inherits Indicator {
+    indicator-color: #4def3f;
+}
+
+component CameraIndicator inherits Indicator {
+    indicator-color: #ef853f;
+}
+
+export component IndicatorLayer inherits Rectangle {
+    horizontal-stretch: 0;
+    
+    HorizontalLayout {
+        width: parent.width;
+        height: parent.height;
+        spacing: 8px;
+
+        if IslandData.mic: MicIndicator {
+            y: (parent.height - self.height) / 2;
+        }
+        if IslandData.camera: CameraIndicator {
+            y: (parent.height - self.height) / 2;
+        }
+    }
+
+}
