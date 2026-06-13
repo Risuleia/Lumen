@@ -54,6 +54,18 @@ impl Service for NotificationService {
                     .await
                     .unwrap();
 
+                let mut live_ids: HashSet<u32> = HashSet::new();
+                let count = notifications.Size().unwrap_or(0);
+                for i in 0..count {
+                    if let Ok(n) = notifications.GetAt(i) {
+                        if let Ok(id) = n.Id() {
+                            live_ids.insert(id);
+                        }
+                    }
+                }
+
+                self.seen.retain(|id| live_ids.contains(id));
+
                 for notification in notifications {
                     let id = notification.Id().unwrap();
 
@@ -76,11 +88,11 @@ impl Service for NotificationService {
 
                     let (title, body) = parse_notification(notification);
 
-                    notifications_to_process.push((app_id, title, body));
+                    notifications_to_process.push((id, app_id, title, body));
                 }
             }
 
-            for (app_id, title, body) in notifications_to_process {
+            for (id, app_id, title, body) in notifications_to_process {
                 let app_id_clone = app_id.clone();
                 let app_icon = tokio::task::spawn_blocking(move || {
                     tokio::runtime::Builder::new_current_thread()
@@ -93,7 +105,7 @@ impl Service for NotificationService {
                 .unwrap_or(None);
 
                 let state = NotificationState {
-                    id: runtime.notifications.lock().unwrap().len() as u64,
+                    id: id as u64,
                     app_name: resolve_name_from_aumid(&app_id),
                     app_icon: app_icon,
                     title,
@@ -106,7 +118,7 @@ impl Service for NotificationService {
                     .unwrap()
                     .push_back(state.clone());
 
-                let _ = tx.send(CoreEvent::NotificationReceived(state.clone()));
+                let _ = tx.send(CoreEvent::NotificationReceived(state));
             }
 
             self.initialized = true;

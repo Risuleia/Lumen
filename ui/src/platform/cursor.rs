@@ -31,22 +31,6 @@ pub fn point_inside_pill(
         return true;
     }
 
-    // // top left
-    // let dx = px - radius;
-    // let dy = py - radius;
-
-    // if dx * dx + dy * dy <= radius * radius {
-    //     return true;
-    // }
-
-    // // top right
-    // let dx = px - (width - radius - 1);
-    // let dy = py - radius;
-
-    // if dx * dx + dy * dy <= radius * radius {
-    //     return true;
-    // }
-
     // bottom left
     let dx = px - radius;
     let dy = py - (height - radius - 1);

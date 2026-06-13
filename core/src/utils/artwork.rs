@@ -1,6 +1,6 @@
 use anyhow::Result;
-use sha2::{Digest, Sha256};
 use windows::{Media::Control::GlobalSystemMediaTransportControlsSessionMediaProperties, Storage::Streams::{Buffer, DataReader, InputStreamOptions}};
+use xxhash_rust::xxh3::xxh3_64;
 
 use crate::utils::cache_dir;
 
@@ -27,11 +27,7 @@ pub async fn extract_album_art(
     let mut bytes = vec![0u8; size as usize];
     reader.ReadBytes(&mut bytes)?;
     
-    let digest = Sha256::digest(&bytes);
-    let hash = digest
-        .iter()
-        .map(|b| format!("{:02x}", b))
-        .collect::<String>();
+    let hash = format!("{:016x}", xxh3_64(&bytes));
 
     let img = image::load_from_memory(&bytes)?;
 

@@ -1,7 +1,6 @@
-use std::{sync::{Arc, Mutex}, time::Duration};
+use std::{sync::{Arc, Mutex, OnceLock}, time::Duration};
 
-use i_slint_backend_winit::WinitWindowAccessor;
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+use i_slint_backend_winit::{WinitWindowAccessor, winit::raw_window_handle::{HasWindowHandle, RawWindowHandle}};
 use slint::ComponentHandle;
 use windows::Win32::{
     Foundation::{HWND, RECT},
@@ -10,7 +9,9 @@ use windows::Win32::{
     }}
 };
 
-use crate::{geometry::SHELL_WIDTH, platform::{clickthrough::WINDOW_HWND, cursor::{cursor_position, point_inside_pill}, fullscreen::is_foreground_fullscreen, set_clickthrough}, state::{ContentState, IslandState}};
+use crate::{geometry::SHELL_WIDTH, platform::{cursor::{cursor_position, point_inside_pill}, fullscreen::is_foreground_fullscreen, set_clickthrough}, state::{ContentState, IslandState}};
+
+static WINDOW_HWND: OnceLock<isize> = OnceLock::new();
 
 pub fn initialize_window<T>(
     component: &T, 

@@ -153,17 +153,20 @@ impl Lumen {
                 let Some(shell) = weak.upgrade() else {
                     return;
                 };
-
-                let global = shell.global::<IslandData>();
-
-                let spectrum = {
-                    let spectrum = runtime.spectrum.read().unwrap();
-                    (&spectrum[..]).into()
-                };
-                global.set_spectrum(spectrum);
-
+                
                 let media = { runtime.media.read().unwrap().clone() };
+
                 if let Some(media) = media {
+                    if !media.playing { return; }
+                    
+                    let global = shell.global::<IslandData>();
+
+                    let spectrum = {
+                        let spectrum = runtime.spectrum.read().unwrap();
+                        (&spectrum[..]).into()
+                    };
+                    global.set_spectrum(spectrum);
+
                     global.set_media_position(media.current_position_ms() as i32);
                 };
             });

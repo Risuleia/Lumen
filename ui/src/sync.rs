@@ -21,12 +21,12 @@ pub fn media_to_slint(
     fallback_album: &Image
 ) -> SlintMediaState {
     SlintMediaState {
-        app_name: SharedString::from(media.app_name.clone()),
+        app_name: SharedString::from(&media.app_name),
         app_icon: load_image(media.app_icon.as_deref(), fallback_app),
         
-        title: SharedString::from(media.title.clone()),
-        album: SharedString::from(media.album.clone()),
-        artist: SharedString::from(media.artist.clone()),
+        title: SharedString::from(&media.title),
+        album: SharedString::from(&media.album),
+        artist: SharedString::from(&media.artist),
 
         album_art: load_image(media.album_art.as_deref(), fallback_album),
 
@@ -43,10 +43,10 @@ pub fn notification_to_slint(
     SlintNotificationState {
         id: SharedString::from(notif.id.to_string()),
 
-        app_name: SharedString::from(notif.app_name.clone()),
+        app_name: SharedString::from(&notif.app_name),
         app_icon: load_image(notif.app_icon.as_deref(), fallback_app),
         
-        title: SharedString::from(notif.title.clone()),
-        body: SharedString::from(notif.body.clone()),
+        title: SharedString::from(&notif.title),
+        body: SharedString::from(&notif.body),
     }
 }

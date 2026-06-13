@@ -78,6 +78,9 @@ unsafe fn run_loopback(runtime: Arc<RuntimeState>) -> Result<()> {
             .collect();
     
         let mut smooth = [0.0f32; NUM_BANDS];
+
+        let mut buffer = vec![Complex { re: 0.0f32, im: 0.0f32 }; FFT_SIZE];
+        let mut mags = vec![0.0f32; FFT_SIZE / 2];
     
         loop {
             let mut packet = capture.GetNextPacketSize()?;
@@ -114,22 +117,22 @@ unsafe fn run_loopback(runtime: Arc<RuntimeState>) -> Result<()> {
                 capture.ReleaseBuffer(frames)?;
                 packet = capture.GetNextPacketSize()?;
             }
+
+            while ring.len() > FFT_SIZE * 4 {
+                ring.pop_front();
+            }
     
             while ring.len() >= FFT_SIZE {
-                let mut buffer = Vec::<Complex<f32>>::with_capacity(FFT_SIZE);
-
                 for i in 0..FFT_SIZE {
                     let sample = ring.pop_front().unwrap();
-
-                    buffer.push(Complex { re: sample * window[i], im: 0.0 });
+                    buffer[i] = Complex { re: sample * window[i], im: 0.0 };
                 }
 
                 fft.process(&mut buffer);
 
-                let mags: Vec<f32> = buffer[..FFT_SIZE / 2]
-                    .iter()
-                    .map(|c| c.norm())
-                    .collect();
+                for i in 0..FFT_SIZE / 2 {
+                    mags[i] = buffer[i].norm();
+                }
 
                 let bands = compute_bands(&mags, format.nSamplesPerSec as usize);
 

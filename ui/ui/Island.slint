@@ -9,6 +9,10 @@ import { Notification } from "layouts/Notification.slint";
 
 export component Island inherits Rectangle {
     in property <IslandContent> content: IslandData.content;
+    private property <IslandContent> displayed-content: content;
+    private property <length> target-width: root.width;
+    private property <length> target-height: root.height;
+    private property <bool> is-animating: false;
 
     in property <length> y-anchor;
     in property <length> radius;
@@ -32,9 +36,14 @@ export component Island inherits Rectangle {
             : -(root.height - 8px)
         : root.y-anchor - 8px;
 
-    animate width, height, y {
-        duration: 450ms;
-        easing: ease-in-out;
+    animate width, height {
+        duration: 500ms;
+        easing: cubic-bezier(0.34, 1.56, 0.64, 1.0);
+    }
+
+    animate y {
+        duration: 400ms;
+        easing: cubic-bezier(0.34, 1.56, 0.64, 1.0);
     }
 
     visibility-timer := Timer {
@@ -56,6 +65,40 @@ export component Island inherits Rectangle {
 
             self.running = false;
         }
+    }
+
+    content-switch-timer := Timer {
+        interval: 400ms;
+        triggered => {
+            root.displayed-content = root.content;
+            self.running = true;
+        }
+    }
+
+    changed content => {
+        content-switch-timer.running = true;
+        
+        if (has-active-content == true && root.content == IslandContent.Idle) {
+            IslandData.action("expand", "false");
+        }
+    }
+
+    animation-guard-timer := Timer {
+        interval: 550ms;
+        triggered => {
+            root.is-animating = false;
+            self.running = false;
+        }
+    }
+
+    changed width => {
+        root.is-animating = true;
+        animation-guard-timer.running = true;
+    }
+
+    changed height => {
+        root.is-animating = true;
+        animation-guard-timer.running = true;
     }
 
     private property <int> state-trigger: 
@@ -100,6 +143,8 @@ export component Island inherits Rectangle {
         drop-shadow-offset-y: 2px;
 
         HorizontalLayout {
+            opacity: is-animating ? 0 : 1;
+
             width: parent.width;
             height: parent.height;
             
@@ -109,12 +154,16 @@ export component Island inherits Rectangle {
             padding-bottom: IslandData.expanded ? 1.5rem : 0.8rem;
     
             spacing: 1.5rem;
+
+            animate opacity {
+                duration: 150ms;
+            }
     
-            if content == IslandContent.Idle: Idle {}
-            if content == IslandContent.Media: Media {}
-            if content == IslandContent.Notification: Notification {}
+            if !is-animating && displayed-content == IslandContent.Idle: Idle {}
+            if !is-animating && displayed-content == IslandContent.Media: Media {}
+            if !is-animating && displayed-content == IslandContent.Notification: Notification {}
         
-            if !IslandData.expanded && (IslandData.mic || IslandData.camera): IndicatorLayer {}
+            if !is-animating && !IslandData.expanded && (IslandData.mic || IslandData.camera): IndicatorLayer {}
         }
     }
 

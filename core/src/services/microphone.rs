@@ -49,8 +49,13 @@ impl Service for MicrophoneService {
 }
 
 fn microphone_active() -> bool {
-    let detector = MicrophoneDetector::new()
-        .expect("Failed to create detector");
+    let detector = match MicrophoneDetector::new() {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("[MicrophoneServive] {e}");
+            return false;
+        }
+    };
 
     detector.active().unwrap_or(false)
 }

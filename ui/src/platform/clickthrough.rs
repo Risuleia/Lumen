@@ -1,8 +1,4 @@
-use std::sync::OnceLock;
-
 use windows::Win32::{Foundation::HWND, UI::WindowsAndMessaging::{GWL_EXSTYLE, GetWindowLongPtrW, SetWindowLongPtrW, WS_EX_TRANSPARENT}};
-
-pub static WINDOW_HWND: OnceLock<isize> = OnceLock::new();
 
 pub unsafe fn set_clickthrough(hwnd: HWND, enabled: bool) {
     unsafe {

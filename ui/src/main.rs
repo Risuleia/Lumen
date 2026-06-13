@@ -1,13 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-
 use anyhow::{Result, anyhow};
 use single_instance::SingleInstance;
 
 use crate::{
     app::Lumen,
     geometry::{SHELL_HEIGHT, SHELL_WIDTH},
-    platform::initialize_window,
+    platform::{initialize_tray, initialize_window},
 };
 
 mod app;
@@ -33,6 +32,8 @@ fn main() -> Result<()> {
     let shell = Shell::new().unwrap();
     let weak = shell.as_weak();
 
+    let (_tray, _tray_timer) = initialize_tray();
+    
     initialize_window(
         &shell, 
         SHELL_WIDTH, 
@@ -43,6 +44,7 @@ fn main() -> Result<()> {
             .map(|s| s.global::<IslandData>().get_collapsed())
             .unwrap_or(false)
     );
+
 
     app.start(&shell)?;
 

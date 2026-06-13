@@ -1,4 +1,12 @@
-use windows::Win32::{Foundation::{HWND, RECT}, Graphics::{Dwm::{DWMWA_CLOAKED, DwmGetWindowAttribute}, Gdi::{GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromWindow}}, System::{ProcessStatus::GetProcessImageFileNameW, Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION}}, UI::WindowsAndMessaging::{GWL_STYLE, GetForegroundWindow, GetWindowLongW, GetWindowRect, GetWindowThreadProcessId, IsIconic, IsWindowVisible, IsZoomed, RealGetWindowClassW, WS_CAPTION, WS_POPUP}};
+use windows::Win32::{Foundation::{CloseHandle, HWND, RECT}, Graphics::{Dwm::{DWMWA_CLOAKED, DwmGetWindowAttribute}, Gdi::{GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromWindow}}, System::{ProcessStatus::GetProcessImageFileNameW, Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION}}, UI::WindowsAndMessaging::{GWL_STYLE, GetForegroundWindow, GetWindowLongW, GetWindowRect, GetWindowThreadProcessId, IsIconic, IsWindowVisible, IsZoomed, RealGetWindowClassW, WS_CAPTION, WS_POPUP}};
+
+struct OwnedHandle(windows::Win32::Foundation::HANDLE);
+
+impl Drop for OwnedHandle {
+    fn drop(&mut self) {
+        unsafe { let _ = CloseHandle(self.0); }
+    }
+}
 
 pub fn is_foreground_fullscreen(app_hwnd: HWND) -> bool {
     unsafe {
@@ -21,9 +29,10 @@ pub fn is_foreground_fullscreen(app_hwnd: HWND) -> bool {
         let mut process_id: u32 = 0;
         GetWindowThreadProcessId(hwnd, Some(&mut process_id));
         if process_id != 0 {
-            if let Ok(process_handle) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process_id) {
+            if let Ok(h) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process_id) {
+                let _handle = OwnedHandle(h);
                 let mut image_name = [0u16; 512];
-                let len = GetProcessImageFileNameW(process_handle, &mut image_name);
+                let len = GetProcessImageFileNameW(h, &mut image_name);
                 if len > 0 {
                     let path_str = String::from_utf16_lossy(&image_name[..len as usize]).to_lowercase();
                     if path_str.contains("startmenuexperiencehost.exe") 
