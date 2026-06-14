@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "compositor",
     "core",
     "ui"
 ]
