@@ -56,8 +56,6 @@ async fn run_unpackaged_polling(
 
     populate_seen(seen, &listener).await;
 
-    let mut last_known_count = seen.len();
-
     loop {
         tokio::time::sleep(Duration::from_millis(300)).await;
 
@@ -69,11 +67,6 @@ async fn run_unpackaged_polling(
         };
 
         let current_count = notifications.Size().unwrap_or(0) as usize;
-
-        if current_count == last_known_count {
-            continue;
-        }
-
         let mut live_ids = HashSet::with_capacity(current_count);
 
         for i in 0..current_count as u32 {
@@ -114,8 +107,6 @@ async fn run_unpackaged_polling(
         }
 
         seen.retain(|id| live_ids.contains(id));
-
-        last_known_count = seen.len();
     }
 }
 
