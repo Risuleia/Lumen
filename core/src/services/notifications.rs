@@ -18,106 +18,104 @@ use crate::{
     utils::{icon::resolve_app_icon, name::resolve_name_from_aumid},
 };
 
-pub struct NotificationService {
-    seen: HashSet<u32>,
-    initialized: bool,
-}
+pub struct NotificationService;
 
 #[async_trait]
 impl Service for NotificationService {
     fn new() -> Self {
-        Self { seen: HashSet::new(), initialized: false }
+        Self
     }
 
-    async fn run(mut self, tx: EventSender, runtime: Arc<RuntimeState>) {
-        unsafe {
-            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
-        }
+    async fn run(self, tx: EventSender, runtime: Arc<RuntimeState>) {
+        std::thread::spawn(move || {
+            unsafe {
+                let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+            }
 
-        let Ok(listener) = create_listener().await else {
-            return;
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("failed to build notification runtime");
+
+            rt.block_on(async move {
+                let mut seen_cache = HashSet::new();
+                if let Err(e) = run_unpackaged_polling(&mut seen_cache, tx, runtime).await {
+                    eprintln!("[NotificationService] Fatal error: {e}");
+                }
+            });
+        });
+    }
+}
+
+async fn run_unpackaged_polling(
+    seen: &mut HashSet<u32>,
+    tx: EventSender,
+    runtime: Arc<RuntimeState>,
+) -> Result<()> {
+    let listener = create_listener().await?;
+
+    populate_seen(seen, &listener).await;
+
+    let mut last_known_count = seen.len();
+
+    loop {
+        tokio::time::sleep(Duration::from_millis(300)).await;
+
+        let Ok(op) = listener.GetNotificationsAsync(NotificationKinds::Toast) else {
+            continue;
+        };
+        let Ok(notifications) = op.await else {
+            continue;
         };
 
-        loop {
-            let mut notifications_to_process = Vec::new();
+        let current_count = notifications.Size().unwrap_or(0) as usize;
 
-            {
-                let Ok(op) = listener.GetNotificationsAsync(NotificationKinds::Toast) else {
-                    return;
-                };
-                let Ok(notifications) = op.await else {
-                    return;
-                };
-
-                let mut live_ids: HashSet<u32> = HashSet::new();
-                let count = notifications.Size().unwrap_or(0);
-                for i in 0..count {
-                    if let Ok(n) = notifications.GetAt(i) {
-                        if let Ok(id) = n.Id() {
-                            live_ids.insert(id);
-                        }
-                    }
-                }
-
-                self.seen.retain(|id| live_ids.contains(id));
-
-                for notification in notifications {
-                    let Ok(id) = notification.Id() else {
-                        continue;
-                    };
-
-                    if self.seen.contains(&id) {
-                        continue;
-                    }
-
-                    self.seen.insert(id);
-
-                    if !self.initialized {
-                        continue;
-                    }
-
-                    let app_id = notification
-                        .AppInfo()
-                        .ok()
-                        .and_then(|a| a.AppUserModelId().ok())
-                        .map(|s| s.to_string())
-                        .unwrap_or_default();
-
-                    let (title, body) = parse_notification(notification);
-
-                    notifications_to_process.push((id, app_id, title, body));
-                }
-            }
-
-            for (id, app_id, title, body) in notifications_to_process {
-                let app_id_clone = app_id.clone();
-                let app_icon = tokio::task::spawn_blocking(move || {
-                    tokio::runtime::Builder::new_current_thread()
-                        .enable_all()
-                        .build()
-                        .unwrap()
-                        .block_on(resolve_app_icon(&app_id_clone))
-                })
-                .await
-                .unwrap_or(None);
-
-                let state = NotificationState {
-                    id: id as u64,
-                    app_name: resolve_name_from_aumid(&app_id),
-                    app_icon: app_icon,
-                    title,
-                    body,
-                };
-
-                runtime.notifications.lock().unwrap().push_back(state.clone());
-
-                let _ = tx.send(CoreEvent::NotificationReceived(state));
-            }
-
-            self.initialized = true;
-
-            tokio::time::sleep(Duration::from_millis(500)).await;
+        if current_count == last_known_count {
+            continue;
         }
+
+        let mut live_ids = HashSet::with_capacity(current_count);
+
+        for i in 0..current_count as u32 {
+            let Ok(notification) = notifications.GetAt(i) else {
+                continue;
+            };
+            let Ok(id) = notification.Id() else {
+                continue;
+            };
+
+            live_ids.insert(id);
+
+            if seen.contains(&id) {
+                continue;
+            }
+            seen.insert(id);
+
+            let app_id = notification
+                .AppInfo()
+                .ok()
+                .and_then(|a| a.AppUserModelId().ok())
+                .map(|s| s.to_string())
+                .unwrap_or_default();
+
+            let (title, body) = parse_notification(notification);
+            let app_icon = resolve_app_icon(&app_id).await;
+
+            let state = NotificationState {
+                id: id as u64,
+                app_name: resolve_name_from_aumid(&app_id),
+                app_icon,
+                title,
+                body,
+            };
+
+            runtime.notifications.lock().unwrap().push_back(state.clone());
+            let _ = tx.send(CoreEvent::NotificationReceived(state));
+        }
+
+        seen.retain(|id| live_ids.contains(id));
+
+        last_known_count = seen.len();
     }
 }
 
@@ -131,6 +129,24 @@ async fn create_listener() -> Result<UserNotificationListener> {
     }
 
     Ok(listener)
+}
+
+async fn populate_seen(seen: &mut HashSet<u32>, listener: &UserNotificationListener) {
+    let Ok(op) = listener.GetNotificationsAsync(NotificationKinds::Toast) else {
+        return;
+    };
+    let Ok(notifications) = op.await else {
+        return;
+    };
+
+    let count = notifications.Size().unwrap_or(0);
+    for i in 0..count {
+        if let Ok(n) = notifications.GetAt(i) {
+            if let Ok(id) = n.Id() {
+                seen.insert(id);
+            }
+        }
+    }
 }
 
 fn parse_notification(notification: UserNotification) -> (String, String) {
@@ -158,7 +174,5 @@ fn parse_notification(notification: UserNotification) -> (String, String) {
         }
     }
 
-    let joined_body = body.join("\n");
-
-    (title, joined_body)
+    (title, body.join("\n"))
 }

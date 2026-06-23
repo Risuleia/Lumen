@@ -6,7 +6,7 @@ export component ElidedText inherits Rectangle {
     in property <string> text;
     in property <TextWrap> wrap: no-wrap;
 
-    height: t.font-size;
+    height: t.font-size + 4px;
     clip: true;
 
     VerticalLayout {
