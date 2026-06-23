@@ -1,7 +1,16 @@
+import { Config } from "../global.slint";
+
 export global Metrics {
-    out property <length> border-width: 1px;
-    out property <length> fs-100: 10pt;
+    out property <length> border-width: 1px * Config.scale;
+
+    // font sizes
+    out property <length> fs-100: 10pt * Config.scale;
     out property <length> fs-120: fs-100 * 1.20;
     out property <length> fs-125: fs-100 * 1.25;
     out property <length> fs-150: fs-100 * 1.50;
+
+    // radius
+    out property <length> radius-sm: 2px * Config.scale;
+    out property <length> radius-md: 4px * Config.scale;
+    out property <length> radius-lg: 16px * Config.scale;
 }

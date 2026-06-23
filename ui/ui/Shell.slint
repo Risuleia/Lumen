@@ -1,7 +1,7 @@
 import { Island } from "Island.slint";
-import { IslandData, Assets } from "global.slint";
+import { IslandData, Assets, Config } from "global.slint";
 
-export { IslandData, Assets }
+export { IslandData, Assets, Config }
 
 import "../../assets/fonts/Satoshi-Light.otf";
 
@@ -23,7 +23,7 @@ export component Shell inherits Window {
 
     Island {
         width: island-width;
-        height: island-height + 8px;
+        height: island-height + Config.y-offset;
 
         radius: island-radius;
 

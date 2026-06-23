@@ -1,8 +1,11 @@
+import { Config } from "../global.slint";
 export component Indicator inherits Rectangle {
     in property <color> indicator-color;
 
-    height: 12px;
-    width: 12px;
+    private property <length> size: 12px * Config.scale;
+
+    height: size;
+    width: size;
     border-radius: self.height / 2;
 
     background: indicator-color;

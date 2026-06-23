@@ -2,7 +2,7 @@ import { Colors } from "theme/Colors.slint";
 import { Metrics } from "theme/Metrics.slint";
 import { IslandContent } from "types.slint";
 import { IndicatorLayer } from "IndicatorLayer.slint";
-import { IslandData } from "global.slint";
+import { IslandData, Config } from "global.slint";
 import { Idle } from "layouts/Idle.slint";
 import { Media } from "layouts/Media.slint";
 import { Notification } from "layouts/Notification.slint";
@@ -32,9 +32,9 @@ export component Island inherits Rectangle {
     
     y: root.has-active-content 
         ? (IslandData.expanded || ta.has-hover || !root.timer-expired)
-            ? ((IslandData.mic || IslandData.camera) && content == IslandContent.Idle ? 0 : root.y-anchor - 8px)
-            : -(root.height - 8px)
-        : root.y-anchor - 8px;
+            ? (IslandData.mic || IslandData.camera) && content == IslandContent.Idle ? 0 : root.y-anchor - Config.y-offset
+            : -(root.height - Config.y-offset)
+        : root.y-anchor - Config.y-offset;
 
     animate width, height {
         duration: 500ms;
@@ -57,7 +57,7 @@ export component Island inherits Rectangle {
     }
 
     notification-timer := Timer {
-        interval: 3000ms;
+        interval: Config.notification-timeout-ms * 1ms;
         triggered => {
             if (content == IslandContent.Notification && !IslandData.expanded) {
                 IslandData.action("dismiss-notification", IslandData.notification.id);
@@ -129,8 +129,8 @@ export component Island inherits Rectangle {
 
     island := Rectangle {
         width: parent.width;
-        height: parent.height - 8px;
-        y: 8px;
+        height: parent.height - Config.y-offset;
+        y: Config.y-offset;
 
         background: Colors.island-bg;
         border-color: Colors.island-border;

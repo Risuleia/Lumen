@@ -1,7 +1,7 @@
 import { IslandData } from "../global.slint";
 import { Metrics } from "../theme/Metrics.slint";
 import { Colors } from "../theme/Colors.slint";
-import { Assets } from "../global.slint";
+import { Assets, Config } from "../global.slint";
 import { SpectrumBars } from "../components/SpectrumBars.slint";
 import { MediaControls } from "../components/MediaControls.slint";
 import { Timeline } from "../components/Timeline.slint";
@@ -14,7 +14,7 @@ component CollapsedMedia inherits HorizontalLayout {
 
         height: parent.height;
         width: parent.height;
-        border-radius: 4px;
+        border-radius: Metrics.radius-md;
         clip: true;
 
         Image {
@@ -40,11 +40,13 @@ component ExpandedMedia inherits VerticalLayout {
         vertical-stretch: 0;
 
         Rectangle {
+            private property <length> size: 18px * Config.scale;
+
             y: (parent.height - self.height) / 2;
 
-            height: 18px;
-            width: 18px;
-            border-radius: 2px;
+            height: size;
+            width: size;
+            border-radius: Metrics.radius-sm;
             clip: true;
 
             Image {
@@ -74,10 +76,12 @@ component ExpandedMedia inherits VerticalLayout {
             spacing: 1.5rem;
 
             Rectangle {
+                private property <length> size: 80px * Config.scale;
+
                 horizontal-stretch: 0;
-                width: 80px;
-                height: 80px;
-                border-radius: 16px;
+                width: size;
+                height: size;
+                border-radius: Metrics.radius-lg;
                 clip: true;
 
                 Image {

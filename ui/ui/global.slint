@@ -43,6 +43,12 @@ export global IslandData {
     callback action(name: string, payload: string);
 }
 
+export global Config {
+    in property <float> scale: 1.0;
+    in property <length> y-offset: 8px;
+    in property <int> notification-timeout-ms: 3000;
+}
+
 export global Assets {
     out property <image> fallback-app: @image-url("../../assets/images/fallback-app.png");
     out property <image> fallback-media: @image-url("../../assets/images/fallback-media.png");

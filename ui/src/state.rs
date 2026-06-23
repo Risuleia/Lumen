@@ -1,6 +1,6 @@
 use lumen_core::{MediaState, NotificationState};
 
-use crate::geometry::IslandBounds;
+use crate::{config::IslandConfig, geometry::IslandBounds};
 
 #[derive(Debug, Clone)]
 pub struct IslandState {
@@ -17,8 +17,8 @@ impl IslandState {
         Self { content: ContentState::Idle, mic: false, camera: false, expanded: false }
     }
 
-    pub fn bounds(&self) -> IslandBounds {
-        let bounds = match (&self.content, self.expanded) {
+    pub fn bounds(&self, island_config: &IslandConfig) -> IslandBounds {
+        let base = match (&self.content, self.expanded) {
             (ContentState::Idle, _) => IslandBounds { y: -48, width: 180, height: 48, radius: 24 },
 
             (ContentState::Media(_), false) => {
@@ -36,7 +36,18 @@ impl IslandState {
             }
         };
 
-        bounds
+        let scale = island_config.scale;
+
+        IslandBounds {
+            y: if base.y < 0 {
+                -((base.y.saturating_abs() as f64 * scale).round() as i32)
+            } else {
+                (island_config.y_offset as f64 * scale).round() as i32
+            },
+            width: (base.width as f64 * scale).round() as i32,
+            height: (base.height as f64 * scale).round() as i32,
+            radius: (base.radius as f64 * scale).round() as i32
+        }
     }
 }
 

@@ -1,6 +1,3 @@
-pub const SHELL_WIDTH: i32 = 600;
-pub const SHELL_HEIGHT: i32 = 300;
-
 #[derive(Debug, Clone, Copy)]
 pub struct IslandBounds {
     pub y: i32,

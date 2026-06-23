@@ -1,4 +1,4 @@
-import { IslandData } from "../global.slint";
+import { IslandData, Config } from "../global.slint";
 import { Metrics } from "../theme/Metrics.slint";
 import { Colors } from "../theme/Colors.slint";
 import { ElidedText } from "../components/ElidedText.slint";
@@ -8,10 +8,12 @@ component CollapsedNotification inherits HorizontalLayout {
     spacing: 1rem;
 
     Rectangle {
+        private property <length> size: 32px * Config.scale;
+
         horizontal-stretch: 0;
-        height: 32px;
-        width: 32px;
-        border-radius: 2px;
+        height: size;
+        width: size;
+        border-radius: Metrics.radius-sm;
         clip: true;
         y: (parent.height - self.height) / 2;
 
@@ -53,11 +55,13 @@ component ExpandedNotification inherits VerticalLayout {
         vertical-stretch: 0;
 
         Rectangle {
+            private property <length> size: 18px * Config.scale;
+
             y: (parent.height - self.height) / 2;
 
-            height: 18px;
-            width: 18px;
-            border-radius: 2px;
+            height: size;
+            width: size;
+            border-radius: Metrics.radius-sm;
             clip: true;
 
             Image {

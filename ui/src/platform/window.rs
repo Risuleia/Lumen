@@ -14,16 +14,13 @@ use windows::Win32::{
     UI::{
         HiDpi::GetDpiForWindow,
         WindowsAndMessaging::{
-            GWL_EXSTYLE, GWL_STYLE, GetSystemMetrics, GetWindowLongPtrW, GetWindowRect,
-            HWND_TOPMOST, LWA_ALPHA, SM_CXSCREEN, SW_HIDE, SW_SHOWNOACTIVATE, SWP_FRAMECHANGED,
-            SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetLayeredWindowAttributes, SetWindowLongPtrW,
-            SetWindowPos, ShowWindow, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_POPUP,
+            GWL_EXSTYLE, GWL_STYLE, GetSystemMetrics, GetWindowLongPtrW, GetWindowRect, HWND_TOPMOST, LWA_ALPHA, SM_CXSCREEN, SM_CYSCREEN, SW_HIDE, SW_SHOWNOACTIVATE, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetLayeredWindowAttributes, SetWindowLongPtrW, SetWindowPos, ShowWindow, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_POPUP
         },
     },
 };
 
 use crate::{
-    geometry::SHELL_WIDTH,
+    config::ConfigHandle,
     platform::{
         clickthrough::set_clickthrough,
         cursor::{cursor_position, point_inside_pill},
@@ -33,12 +30,12 @@ use crate::{
 };
 
 static WINDOW_HWND: OnceLock<isize> = OnceLock::new();
+static TOPMOST_REASSERT_INTERVAL: u32 = 60;
 
 pub fn initialize_window<T>(
     component: &T,
-    width: i32,
-    height: i32,
     state: Arc<Mutex<IslandState>>,
+    config: ConfigHandle,
     get_collapsed: impl Fn() -> bool + Send + 'static,
 ) where
     T: ComponentHandle + 'static,
@@ -49,7 +46,7 @@ pub fn initialize_window<T>(
         if let Some(component) = weak.upgrade() {
             with_hwnd(&component, |hwnd| unsafe {
                 configure_window(hwnd);
-                position_top_center(hwnd, width, height);
+                position_fullscreen(hwnd);
 
                 WINDOW_HWND.set(hwnd.0 as isize).ok();
                 set_clickthrough(hwnd, true);
@@ -57,7 +54,7 @@ pub fn initialize_window<T>(
                 let _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE);
                 let _ = UpdateWindow(hwnd);
 
-                start_clickthrough_loop(hwnd, state.clone(), get_collapsed);
+                start_clickthrough_loop(hwnd, state.clone(), config.clone(), get_collapsed);
             });
         }
     });
@@ -111,17 +108,18 @@ unsafe fn configure_window(hwnd: HWND) {
     }
 }
 
-unsafe fn position_top_center(hwnd: HWND, width: i32, height: i32) {
+unsafe fn position_fullscreen(hwnd: HWND) {
     unsafe {
         let screen_width = GetSystemMetrics(SM_CXSCREEN);
+        let screen_height = GetSystemMetrics(SM_CYSCREEN);
 
         SetWindowPos(
             hwnd,
             Some(HWND_TOPMOST),
-            (screen_width - width) / 2,
             0,
-            width,
-            height,
+            0,
+            screen_width,
+            screen_height,
             SWP_NOACTIVATE,
         )
         .ok();
@@ -131,13 +129,14 @@ unsafe fn position_top_center(hwnd: HWND, width: i32, height: i32) {
 unsafe fn start_clickthrough_loop(
     hwnd: HWND,
     state: Arc<Mutex<IslandState>>,
+    config: ConfigHandle,
     get_collapsed: impl Fn() -> bool + Send + 'static,
 ) {
     let timer = Box::leak(Box::new(slint::Timer::default()));
 
     let mut clickthrough_enabled = true;
-
     let mut hidden_for_fullscreen = false;
+    let mut topmost_counter: u32 = 0;
 
     timer.start(slint::TimerMode::Repeated, Duration::from_millis(16), move || {
         let fullscreen = is_foreground_fullscreen(hwnd);
@@ -155,17 +154,21 @@ unsafe fn start_clickthrough_loop(
             hidden_for_fullscreen = false;
         }
 
-        unsafe {
-            SetWindowPos(
-                hwnd,
-                Some(HWND_TOPMOST),
-                0,
-                0,
-                0,
-                0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
-            )
-            .ok();
+        topmost_counter += 1;
+        if topmost_counter >= TOPMOST_REASSERT_INTERVAL {
+            topmost_counter = 0;
+            unsafe {
+                SetWindowPos(
+                    hwnd,
+                    Some(HWND_TOPMOST),
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                )
+                .ok();
+            }
         }
 
         let (mx, my) = cursor_position();
@@ -176,10 +179,12 @@ unsafe fn start_clickthrough_loop(
             GetWindowRect(hwnd, &mut rect).ok();
         }
 
+        let island_config = config.get().island;
+
         let (logical, has_active) = {
             let state = state.lock().unwrap();
             (
-                state.clone().bounds(),
+                state.bounds(&island_config),
                 state.mic || state.camera || state.content != ContentState::Idle,
             )
         };
@@ -189,7 +194,9 @@ unsafe fn start_clickthrough_loop(
         let scale_factor = dpi as f64 / 96.0;
         let bounds = logical.physical(scale_factor);
 
-        let island_x = (SHELL_WIDTH - bounds.width) / 2;
+        let window_width = rect.right - rect.left;
+
+        let island_x = (window_width - bounds.width) / 2;
 
         let island_left = rect.left + island_x;
         let island_top = rect.top

@@ -1,16 +1,18 @@
-import { IslandData } from "../global.slint";
+import { IslandData, Config } from "../global.slint";
 
 export component SpectrumBars inherits HorizontalLayout {
     horizontal-stretch: 0;
     spacing: 2px;
 
     for band[i] in IslandData.spectrum: Rectangle {
+        private property <length> size: max(4px, band * 20px) * Config.scale;
+
         width: 2px;
-        height: max(4px, band * 20px);
+        height: size;
 
         y: (parent.height - self.height) / 2;
 
-        border-radius: 2px;
+        border-radius: self.width / 2;
 
         background: hsv(
             80 + (i * 120 / 27),
