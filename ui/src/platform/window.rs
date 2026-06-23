@@ -136,8 +136,9 @@ unsafe fn start_clickthrough_loop(
     let timer = Box::leak(Box::new(slint::Timer::default()));
 
     let mut clickthrough_enabled = true;
-
     let mut hidden_for_fullscreen = false;
+
+    let mut z_order_tick_counter = 0u8;
 
     timer.start(slint::TimerMode::Repeated, Duration::from_millis(16), move || {
         let fullscreen = is_foreground_fullscreen(hwnd);
@@ -146,55 +147,69 @@ unsafe fn start_clickthrough_loop(
                 let _ = unsafe { ShowWindow(hwnd, SW_HIDE) };
                 hidden_for_fullscreen = true;
             }
-
             return;
         }
 
         if hidden_for_fullscreen {
             let _ = unsafe { ShowWindow(hwnd, SW_SHOWNOACTIVATE) };
             hidden_for_fullscreen = false;
+            unsafe {
+                let _ = SetWindowPos(
+                    hwnd,
+                    Some(HWND_TOPMOST),
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                );
+            }
         }
 
-        unsafe {
-            SetWindowPos(
-                hwnd,
-                Some(HWND_TOPMOST),
-                0,
-                0,
-                0,
-                0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
-            )
-            .ok();
+        z_order_tick_counter = z_order_tick_counter.wrapping_add(1);
+        if z_order_tick_counter >= 60 {
+            z_order_tick_counter = 0;
+            unsafe {
+                let _ = SetWindowPos(
+                    hwnd,
+                    Some(HWND_TOPMOST),
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                );
+            }
         }
 
+        let state_guard = match state.try_lock() {
+            Ok(lock) => lock,
+            Err(_) => return,
+        };
+
+        let logical_bounds = state_guard.bounds();
+        let has_active =
+            state_guard.mic || state_guard.camera || state_guard.content != ContentState::Idle;
+
+        drop(state_guard);
+
+        let collapsed = get_collapsed();
         let (mx, my) = cursor_position();
-
         let mut rect = RECT::default();
 
         unsafe {
-            GetWindowRect(hwnd, &mut rect).ok();
+            let _ = GetWindowRect(hwnd, &mut rect);
         }
-
-        let (logical, has_active) = {
-            let state = state.lock().unwrap();
-            (
-                state.clone().bounds(),
-                state.mic || state.camera || state.content != ContentState::Idle,
-            )
-        };
-        let collapsed = get_collapsed();
 
         let dpi = unsafe { GetDpiForWindow(hwnd) };
         let scale_factor = dpi as f64 / 96.0;
-        let bounds = logical.physical(scale_factor);
+        let bounds = logical_bounds.physical(scale_factor);
 
         let island_x = (SHELL_WIDTH - bounds.width) / 2;
-
         let island_left = rect.left + island_x;
         let island_top = rect.top
             + if collapsed {
-                ((-(logical.height - 10)) as f64 * scale_factor).round() as i32
+                ((-(logical_bounds.height - 10)) as f64 * scale_factor).round() as i32
             } else {
                 0
             };

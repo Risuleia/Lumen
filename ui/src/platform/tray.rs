@@ -17,17 +17,16 @@ use crate::platform::updater::{
 };
 
 pub fn initialize_tray() -> (TrayIcon, slint::Timer) {
-    unsafe {
-        let uxtheme = LoadLibraryW(windows_core::w!("uxtheme.dll")).unwrap();
-
-        let set_mode: extern "system" fn(i32) -> i32 =
-            std::mem::transmute(GetProcAddress(uxtheme, PCSTR(135 as *const u8)));
-
-        set_mode(2);
+    if let Ok(uxtheme) = unsafe { LoadLibraryW(windows_core::w!("uxtheme.dll")) } {
+        unsafe {
+            if let Some(proc_addr) = GetProcAddress(uxtheme, PCSTR(135 as *const u8)) {
+                let set_mode: extern "system" fn(i32) -> i32 = std::mem::transmute(proc_addr);
+                set_mode(2);
+            }
+        }
     }
 
     let menu = Menu::new();
-
     let (tray_img, menu_img) = load_icon();
 
     let header = IconMenuItem::new("Lumen", true, Some(menu_img), None);
@@ -56,62 +55,87 @@ pub fn initialize_tray() -> (TrayIcon, slint::Timer) {
     let state = Arc::new(Mutex::new(UpdateState::Idle));
     let state_clone = state.clone();
 
-    let check_updates = Arc::new(check_updates);
+    let mut last_rendered_state = None;
 
     let poll_timer = slint::Timer::default();
     poll_timer.start(slint::TimerMode::Repeated, Duration::from_millis(100), move || {
-        match &*state.lock().unwrap() {
-            UpdateState::Idle | UpdateState::Failed => {
-                check_updates.set_text("Check for Updates");
-                check_updates.set_enabled(true);
-            }
-            UpdateState::Checking => {
-                check_updates.set_text("Checking...");
-                check_updates.set_enabled(false);
-            }
-            UpdateState::NotAvailable => {
-                check_updates.set_text(format!("No update available"));
-                check_updates.set_enabled(false);
-            }
-            UpdateState::Available(ver) => {
-                check_updates.set_text(format!("Update to v{ver}"));
-                check_updates.set_enabled(true);
-            }
-            UpdateState::Downloading => {
-                check_updates.set_text("Updating...");
-                check_updates.set_enabled(false);
+        let current_state = {
+            if let Ok(lock) = state.lock() {
+                lock.clone()
+            } else {
+                return;
             }
         };
 
+        if Some(current_state.clone()) != last_rendered_state {
+            match &current_state {
+                UpdateState::Idle | UpdateState::Failed => {
+                    check_updates.set_text("Check for Updates");
+                    check_updates.set_enabled(true);
+                }
+                UpdateState::Checking => {
+                    check_updates.set_text("Checking...");
+                    check_updates.set_enabled(false);
+                }
+                UpdateState::NotAvailable => {
+                    check_updates.set_text("No update available");
+                    check_updates.set_enabled(false);
+                }
+                UpdateState::Available(ver) => {
+                    let mut text = String::with_capacity(24);
+                    text.push_str("Update to v");
+                    text.push_str(ver);
+                    check_updates.set_text(text);
+                    check_updates.set_enabled(true);
+                }
+                UpdateState::Downloading => {
+                    check_updates.set_text("Updating...");
+                    check_updates.set_enabled(false);
+                }
+            };
+            last_rendered_state = Some(current_state.clone());
+        }
+
         if let Ok(event) = tray_icon::menu::MenuEvent::receiver().try_recv() {
             if event.id == quit_id {
-                slint::quit_event_loop().unwrap();
+                let _ = slint::quit_event_loop();
             } else if event.id == check_updates_id {
-                let current = state.lock().unwrap().clone();
-
-                match current {
+                match current_state {
                     UpdateState::Idle | UpdateState::Failed => {
-                        *state.lock().unwrap() = UpdateState::Checking;
-                        let state = state_clone.clone();
+                        if let Ok(mut lock) = state.lock() {
+                            *lock = UpdateState::Checking;
+                        }
 
+                        let state = state_clone.clone();
                         std::thread::spawn(move || match force_check_for_update() {
                             Some(ver) => {
-                                *state.lock().unwrap() = UpdateState::Available(ver);
+                                if let Ok(mut lock) = state.lock() {
+                                    *lock = UpdateState::Available(ver);
+                                }
                             }
                             None => {
-                                *state.lock().unwrap() = UpdateState::NotAvailable;
+                                if let Ok(mut lock) = state.lock() {
+                                    *lock = UpdateState::NotAvailable;
+                                }
                                 std::thread::sleep(Duration::from_secs(2));
-                                *state.lock().unwrap() = UpdateState::Idle;
+                                if let Ok(mut lock) = state.lock() {
+                                    *lock = UpdateState::Idle;
+                                }
                             }
                         });
                     }
                     UpdateState::Available(_) => {
-                        *state.lock().unwrap() = UpdateState::Downloading;
+                        if let Ok(mut lock) = state.lock() {
+                            *lock = UpdateState::Downloading;
+                        }
+
                         let state = state_clone.clone();
                         std::thread::spawn(move || {
                             if let Err(e) = download_and_apply_update() {
-                                eprintln!("[Updater] {e}");
-                                *state.lock().unwrap() = UpdateState::Failed;
+                                eprintln!("[Updater] Update application failed: {e}");
+                                if let Ok(mut lock) = state.lock() {
+                                    *lock = UpdateState::Failed;
+                                }
                             }
                         });
                     }
@@ -126,11 +150,16 @@ pub fn initialize_tray() -> (TrayIcon, slint::Timer) {
 
 fn load_icon() -> (tray_icon::Icon, tray_icon::menu::Icon) {
     let bytes = include_bytes!("../../../assets/lumen.ico");
-    let img = image::load_from_memory(bytes).unwrap().to_rgba8();
-    let (w, h) = img.dimensions();
+
+    let decoded_image = image::load_from_memory(bytes)
+        .expect("Failed to parse embedded lumen.ico asset")
+        .to_rgba8();
+
+    let (width, height) = decoded_image.dimensions();
+    let raw_rgba_pixels = decoded_image.into_raw();
 
     (
-        tray_icon::Icon::from_rgba(img.clone().into_raw(), w, h).unwrap(),
-        tray_icon::menu::Icon::from_rgba(img.into_raw(), w, h).unwrap(),
+        tray_icon::Icon::from_rgba(raw_rgba_pixels.clone(), width, height).unwrap(),
+        tray_icon::menu::Icon::from_rgba(raw_rgba_pixels, width, height).unwrap(),
     )
 }

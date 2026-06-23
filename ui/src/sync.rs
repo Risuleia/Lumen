@@ -1,15 +1,33 @@
-use std::path::Path;
+use std::{cell::RefCell, collections::HashMap, path::Path};
 
 use lumen_core::{MediaState, NotificationState};
 use slint::{Image, SharedString};
 
 use crate::{MediaState as SlintMediaState, NotificationState as SlintNotificationState};
 
+thread_local! {
+    static LOCAL_TEXTURE_CACHE: RefCell<HashMap<String, Image>> = RefCell::new(HashMap::new());
+}
+
 fn load_image(path: Option<&str>, fallback: &Image) -> Image {
-    if let Some(path) = path {
-        if let Ok(image) = Image::load_from_path(&Path::new(path)) {
-            return image;
-        }
+    let Some(path_str) = path else {
+        return fallback.clone();
+    };
+    if path_str.is_empty() {
+        return fallback.clone();
+    }
+
+    let cached_match = LOCAL_TEXTURE_CACHE.with(|cache| cache.borrow().get(path_str).cloned());
+    if let Some(cached_image) = cached_match {
+        return cached_image;
+    }
+
+    if let Ok(image) = Image::load_from_path(Path::new(path_str)) {
+        LOCAL_TEXTURE_CACHE.with(|cache| {
+            cache.borrow_mut().insert(path_str.to_string(), image.clone());
+        });
+
+        return image;
     }
 
     fallback.clone()

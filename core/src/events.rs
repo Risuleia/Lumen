@@ -74,16 +74,10 @@ impl PartialEq for MediaState {
             && self.duration_ms == other.duration_ms
             && self.playing == other.playing
             && self.app_icon == other.app_icon
+            && self.position_ms.abs_diff(other.position_ms) < 15
     }
 
     fn ne(&self, other: &Self) -> bool {
-        self.app_name != other.app_name
-            || self.title != other.title
-            || self.artist != other.artist
-            || self.album != other.album
-            || self.album_art != other.album_art
-            || self.duration_ms != other.duration_ms
-            || self.playing != other.playing
-            || self.app_icon != other.app_icon
+        !self.eq(other)
     }
 }

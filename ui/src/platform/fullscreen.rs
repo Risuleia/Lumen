@@ -1,3 +1,5 @@
+use std::{cell::RefCell, collections::HashMap};
+
 use windows::Win32::{
     Foundation::{CloseHandle, HWND, RECT},
     Graphics::{
@@ -24,6 +26,14 @@ impl Drop for OwnedHandle {
     }
 }
 
+struct CachedWindow {
+    should_exclude: bool,
+}
+
+thread_local! {
+    static WINDOW_EXCLUSION_CACHE: RefCell<HashMap<usize, CachedWindow>> = RefCell::new(HashMap::with_capacity(16));
+}
+
 pub fn is_foreground_fullscreen(app_hwnd: HWND) -> bool {
     unsafe {
         let hwnd = GetForegroundWindow();
@@ -32,6 +42,15 @@ pub fn is_foreground_fullscreen(app_hwnd: HWND) -> bool {
             || IsIconic(hwnd).as_bool()
             || !IsWindowVisible(hwnd).as_bool()
         {
+            return false;
+        }
+
+        let hwnd_raw = hwnd.0 as usize;
+
+        let is_cached_exclusion = WINDOW_EXCLUSION_CACHE
+            .with(|cache| cache.borrow().get(&hwnd_raw).map(|w| w.should_exclude));
+
+        if let Some(true) = is_cached_exclusion {
             return false;
         }
 
@@ -46,37 +65,57 @@ pub fn is_foreground_fullscreen(app_hwnd: HWND) -> bool {
             return false;
         }
 
-        let mut process_id: u32 = 0;
-        GetWindowThreadProcessId(hwnd, Some(&mut process_id));
-        if process_id != 0 {
-            if let Ok(h) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process_id) {
-                let _handle = OwnedHandle(h);
-                let mut image_name = [0u16; 512];
-                let len = GetProcessImageFileNameW(h, &mut image_name);
-                if len > 0 {
-                    let path_str =
-                        String::from_utf16_lossy(&image_name[..len as usize]).to_lowercase();
-                    if path_str.contains("startmenuexperiencehost.exe")
-                        || path_str.contains("shellexperiencehost.exe")
-                    {
-                        return false;
+        if is_cached_exclusion.is_none() {
+            let mut should_exclude = false;
+
+            let mut process_id: u32 = 0;
+            GetWindowThreadProcessId(hwnd, Some(&mut process_id));
+            if process_id != 0 {
+                if let Ok(h) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process_id) {
+                    let _handle = OwnedHandle(h);
+                    let mut image_name = [0u16; 512];
+                    let len = GetProcessImageFileNameW(h, &mut image_name);
+                    if len > 0 {
+                        let path_str =
+                            String::from_utf16_lossy(&image_name[..len as usize]).to_lowercase();
+                        if path_str.contains("startmenuexperiencehost.exe")
+                            || path_str.contains("shellexperiencehost.exe")
+                        {
+                            should_exclude = true;
+                        }
                     }
                 }
             }
-        }
 
-        let mut class_name = [0u16; 256];
-        let len = RealGetWindowClassW(hwnd, &mut class_name);
-        if len > 0 {
-            let class_str = String::from_utf16_lossy(&class_name[..len as usize]);
-            if class_str == "Progman"
-                || class_str == "WorkerW"
-                || class_str == "Shell_TrayWnd"
-                || class_str == "ForegroundStaging"
-                || class_str == "XAMLContextMenu"
-                || class_str == "Windows.Internal.Shell.Experience.ContextMenu.WindowClass"
-                || class_str == "#32771"
-            {
+            if !should_exclude {
+                let mut class_name = [0u16; 256];
+                let len = RealGetWindowClassW(hwnd, &mut class_name);
+                if len > 0 {
+                    let class_str = String::from_utf16_lossy(&class_name[..len as usize]);
+                    if class_str == "Progman"
+                        || class_str == "WorkerW"
+                        || class_str == "Shell_TrayWnd"
+                        || class_str == "ForegroundStaging"
+                        || class_str == "XAMLContextMenu"
+                        || class_str == "Windows.Internal.Shell.Experience.ContextMenu.WindowClass"
+                        || class_str == "#32771"
+                    {
+                        should_exclude = true;
+                    }
+                }
+            }
+
+            WINDOW_EXCLUSION_CACHE.with(|cache| {
+                let mut cache_mut = cache.borrow_mut();
+
+                if cache_mut.len() > 64 {
+                    cache_mut.clear();
+                }
+
+                cache_mut.insert(hwnd_raw, CachedWindow { should_exclude });
+            });
+
+            if should_exclude {
                 return false;
             }
         }

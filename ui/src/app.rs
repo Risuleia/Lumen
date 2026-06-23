@@ -51,7 +51,6 @@ impl Lumen {
 
     fn attach_core(&self) {
         let rx = self.core.subscribe();
-
         let lumen = self.clone();
 
         std::thread::spawn(move || {
@@ -163,11 +162,10 @@ impl Lumen {
 
                     let global = shell.global::<IslandData>();
 
-                    let spectrum = {
-                        let spectrum = runtime.spectrum.read().unwrap();
-                        (&spectrum[..]).into()
-                    };
-                    global.set_spectrum(spectrum);
+                    if let Ok(spectrum_lock) = runtime.spectrum.try_read() {
+                        let spectrum_slice: slint::ModelRc<f32> = (&spectrum_lock[..]).into();
+                        global.set_spectrum(spectrum_slice);
+                    }
 
                     global.set_media_position(media.current_position_ms() as i32);
                 };

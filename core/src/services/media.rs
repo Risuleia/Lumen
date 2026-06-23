@@ -58,7 +58,7 @@ struct SessionHandlers {
     session: GlobalSystemMediaTransportControlsSession,
     media_token: i64,
     playback_token: i64,
-    timeline_token: i64
+    timeline_token: i64,
 }
 
 impl SessionHandlers {
