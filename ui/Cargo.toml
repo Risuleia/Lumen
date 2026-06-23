@@ -36,7 +36,7 @@ futures = "0.3.31"
 tray-icon = "0.24.1"
 image = { version = "0.25.10", default-features = false, features = ["ico"] }
 windows-core = "0.62.2"
-self_update = { version = "0.44.0", features = ["archive-zip", "compression-zip-deflate"] }
+self_update = { version = "0.44.0", default-features = false, features = ["reqwest", "default-tls"] }
 
 [build-dependencies]
 slint-build = "1.14.1"

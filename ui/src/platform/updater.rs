@@ -104,9 +104,17 @@ pub fn download_and_apply_update() -> Result<()> {
 
     let tmp_dir = std::env::temp_dir();
     let installer_path = tmp_dir.join(&asset.name);
-    let installer_file = fs::File::create(&installer_path)?;
 
-    self_update::Download::from_url(&asset.download_url).download_to(installer_file)?;
+    {
+        let mut installer_file = fs::File::create(&installer_path)?;
+        self_update::Download::from_url(&asset.download_url)
+            .set_header(
+                "Accept".parse()?, 
+                "application/octet-stream".parse()?
+            )
+            .download_to(&mut installer_file)?;
+        installer_file.sync_all()?;
+    }
 
     const DETACHED_PROCESS: u32 = 0x00000008;
 
