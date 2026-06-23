@@ -134,7 +134,7 @@ unsafe fn run_loopback(runtime: Arc<RuntimeState>) -> Result<()> {
                 *runtime.spectrum.write().unwrap() = smooth;
             }
 
-            std::thread::sleep(Duration::from_millis(5));
+            std::thread::sleep(Duration::from_millis(16));
         }
     }
 }

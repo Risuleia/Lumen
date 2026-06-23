@@ -33,47 +33,47 @@ impl Service for MediaService {
     }
 
     async fn run(mut self, tx: EventSender, runtime: Arc<RuntimeState>) {
-        loop {
-            let result = tokio::task::spawn_blocking(move || {
-                unsafe {
-                    let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
-                }
-
-                tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .expect("failed to build local runtime")
-                    .block_on(current_media())
-            })
-            .await;
-
-            match result {
-                Ok(Ok(new)) => {
-                    match (&self.current, &new) {
-                        (None, Some(media)) => {
-                            let _ = tx.send(CoreEvent::MediaStarted(media.clone()));
-                        }
-                        (Some(_), None) => {
-                            let _ = tx.send(CoreEvent::MediaStopped);
-                        }
-                        (Some(old), Some(new)) => {
-                            if old != new {
-                                let _ = tx.send(CoreEvent::TrackChanged(new.clone()));
-                            }
-                        }
-                        _ => {}
-                    }
-
-                    *runtime.media.write().unwrap() = new.clone();
-
-                    self.current = new;
-                }
-                Ok(Err(e)) => eprintln!("[MediaService] {e}"),
-                Err(e) => eprintln!("[MediaService] blocking task panicked: {e}"),
+        std::thread::spawn(move || {
+            unsafe {
+                let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
             }
 
-            tokio::time::sleep(Duration::from_millis(500)).await;
-        }
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("failed to build media runtime");
+
+            rt.block_on(async move {
+                loop {
+                    let result = current_media().await;
+
+                    match result {
+                        Ok(new) => {
+                            match (&self.current, &new) {
+                                (None, Some(media)) => {
+                                    let _ = tx.send(CoreEvent::MediaStarted(media.clone()));
+                                }
+                                (Some(_), None) => {
+                                    let _ = tx.send(CoreEvent::MediaStopped);
+                                }
+                                (Some(old), Some(new)) => {
+                                    if old != new {
+                                        let _ = tx.send(CoreEvent::TrackChanged(new.clone()));
+                                    }
+                                }
+                                _ => {}
+                            }
+
+                            *runtime.media.write().unwrap() = new.clone();
+                            self.current = new;
+                        }
+                        Err(e) => eprintln!("[MediaService] {e}"),
+                    }
+
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                }
+            });
+        });
     }
 }
 

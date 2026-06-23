@@ -37,8 +37,10 @@ pub fn resolve_name_from_aumid(aumid: &str) -> String {
     if let Ok(name) = get_name_from_registry(aumid) {
         return name;
     }
-
-    aumid.to_string()
+    
+    let fallback = aumid.split('.').collect::<Vec<_>>().join(" ");
+    NAME_CACHE.lock().unwrap().insert(aumid.to_string(), fallback.clone());
+    fallback
 }
 
 fn get_display_name(aumid: &str) -> Result<String> {

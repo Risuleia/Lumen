@@ -30,17 +30,18 @@ pub async fn extract_album_art(
 
     let hash = format!("{:016x}", xxh3_64(&bytes));
 
-    let img = image::load_from_memory(&bytes)?;
-
     let dir = artwork_dir();
-
     std::fs::create_dir_all(&dir)?;
-
     let path = dir.join(format!("{hash}.png"));
 
-    if !path.exists() {
-        img.save(&path)?;
+    if path.exists() {
+        drop(bytes);
+        return Ok(Some(path.to_string_lossy().to_string()));
     }
+
+    let img = image::load_from_memory(&bytes)?;
+    drop(bytes);
+    img.save(&path)?;
 
     Ok(Some(path.to_string_lossy().to_string()))
 }
