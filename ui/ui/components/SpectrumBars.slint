@@ -13,9 +13,9 @@ export component SpectrumBars inherits HorizontalLayout {
         border-radius: 2px;
 
         background: hsv(
-            80 + (i * 120 / 27),
-            45%,
-            88%
+            80 + (((i * 1.0 - 11.5).abs() / 11.5) * 100.0),
+            55%,
+            92%
         );
     }
 }
