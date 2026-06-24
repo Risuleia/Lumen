@@ -108,10 +108,7 @@ pub fn download_and_apply_update() -> Result<()> {
     {
         let mut installer_file = fs::File::create(&installer_path)?;
         self_update::Download::from_url(&asset.download_url)
-            .set_header(
-                "Accept".parse()?, 
-                "application/octet-stream".parse()?
-            )
+            .set_header("Accept".parse()?, "application/octet-stream".parse()?)
             .download_to(&mut installer_file)?;
         installer_file.sync_all()?;
     }
