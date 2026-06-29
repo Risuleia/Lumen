@@ -1,18 +1,25 @@
-use std::{collections::VecDeque, f32::consts::PI, sync::Arc, time::Duration};
+use std::{
+    collections::VecDeque,
+    f32::consts::PI,
+    sync::{Arc, mpsc},
+    time::Duration,
+};
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use async_trait::async_trait;
 use rustfft::{FftPlanner, num_complex::Complex};
 use windows::Win32::{
     Media::Audio::{
         AUDCLNT_BUFFERFLAGS_SILENT, AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK,
         Endpoints::IAudioEndpointVolume, IAudioCaptureClient, IAudioClient, IMMDeviceEnumerator,
-        MMDeviceEnumerator, WAVEFORMATEX, eConsole, eRender,
+        IMMNotificationClient, IMMNotificationClient_Impl, MMDeviceEnumerator, WAVEFORMATEX,
+        eConsole, eRender,
     },
     System::Com::{
         CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx, CoTaskMemFree,
     },
 };
+use windows_core::implement;
 
 use crate::{
     bus::EventSender,
@@ -63,9 +70,22 @@ impl Service for AudioSpectrumService {
             unsafe {
                 let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
             }
-            if let Err(e) = run_loopback_timer_driven(runtime, self.filterbank, self.kinetic_bands)
-            {
-                eprintln!("[AudioSpectrum] Fatal error: {e}");
+
+            loop {
+                match run_loopback_timer_driven(
+                    runtime.clone(),
+                    &self.filterbank,
+                    self.kinetic_bands,
+                ) {
+                    Ok(_) => break,
+                    Err(e) => {
+                        eprintln!("[AudioSpectrum] Reinitializing after: {e}");
+                        if let Ok(mut lock) = runtime.spectrum.write() {
+                            *lock = [0.0f32; NUM_BANDS];
+                        }
+                        std::thread::sleep(Duration::from_millis(500));
+                    }
+                }
             }
         });
     }
@@ -79,7 +99,7 @@ pub struct KineticBand {
 
 fn run_loopback_timer_driven(
     runtime: Arc<RuntimeState>,
-    filterbank: ConstantQFilterBank,
+    filterbank: &ConstantQFilterBank,
     mut kinetic_bands: [KineticBand; NUM_BANDS],
 ) -> Result<()> {
     let enumerator: IMMDeviceEnumerator =
@@ -121,6 +141,12 @@ fn run_loopback_timer_driven(
         audio_client.Start()?;
     }
 
+    let (device_change_tx, device_change_rx) = mpsc::sync_channel::<()>(1);
+    let notifier: IMMNotificationClient = DeviceChangeNotifier { tx: device_change_tx }.into();
+    unsafe {
+        enumerator.RegisterEndpointNotificationCallback(&notifier)?;
+    }
+
     let mut planner = FftPlanner::<f32>::new();
     let fft = planner.plan_fft_forward(FFT_SIZE);
 
@@ -133,8 +159,15 @@ fn run_loopback_timer_driven(
     let mut magnitude_bins = vec![0.0f32; FFT_SIZE / 2];
     let mut band_smoothing_cache = [0.0f32; NUM_BANDS];
 
+    let _guard = NotifierGuard(&enumerator, &notifier);
+
     loop {
         std::thread::sleep(sleep_duration);
+
+        if device_change_rx.try_recv().is_ok() {
+            while device_change_rx.try_recv().is_ok() {}
+            bail!("Default audio device changed");
+        }
 
         let is_muted = unsafe { volume_control.GetMute()?.as_bool() };
         let system_volume = unsafe { volume_control.GetMasterVolumeLevelScalar()? };
@@ -207,6 +240,7 @@ fn run_loopback_timer_driven(
 
         let mut state_changed = false;
 
+        sample_ring_buffer.make_contiguous();
         while sample_ring_buffer.len() >= FFT_SIZE {
             let (front_slice, _) = sample_ring_buffer.as_slices();
 
@@ -339,6 +373,56 @@ impl ConstantQFilterBank {
             } else {
                 ((db - dynamic_floor) / (dynamic_ceiling - dynamic_floor)).clamp(0.0, 1.0)
             };
+        }
+    }
+}
+
+#[implement(IMMNotificationClient)]
+struct DeviceChangeNotifier {
+    tx: mpsc::SyncSender<()>,
+}
+
+impl IMMNotificationClient_Impl for DeviceChangeNotifier_Impl {
+    fn OnDefaultDeviceChanged(
+        &self,
+        flow: windows::Win32::Media::Audio::EDataFlow,
+        _: windows::Win32::Media::Audio::ERole,
+        _: &windows_core::PCWSTR,
+    ) -> windows_core::Result<()> {
+        if flow == eRender {
+            let _ = self.tx.try_send(());
+        }
+        Ok(())
+    }
+
+    fn OnDeviceAdded(&self, _: &windows_core::PCWSTR) -> windows_core::Result<()> {
+        Ok(())
+    }
+    fn OnDeviceRemoved(&self, _: &windows_core::PCWSTR) -> windows_core::Result<()> {
+        Ok(())
+    }
+    fn OnDeviceStateChanged(
+        &self,
+        _: &windows_core::PCWSTR,
+        _: windows::Win32::Media::Audio::DEVICE_STATE,
+    ) -> windows_core::Result<()> {
+        Ok(())
+    }
+    fn OnPropertyValueChanged(
+        &self,
+        _: &windows_core::PCWSTR,
+        _: &windows::Win32::Foundation::PROPERTYKEY,
+    ) -> windows_core::Result<()> {
+        Ok(())
+    }
+}
+
+struct NotifierGuard<'a> (&'a IMMDeviceEnumerator, &'a IMMNotificationClient);
+
+impl Drop for NotifierGuard<'_> {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = self.0.UnregisterEndpointNotificationCallback(self.1);
         }
     }
 }
