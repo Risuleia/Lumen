@@ -28,19 +28,27 @@ pub fn resolve_name_from_aumid(aumid: &str) -> String {
         return name.clone();
     }
 
-    if let Ok(name) = get_display_name(aumid) {
-        return name;
-    }
-    if let Ok(name) = get_win32_app_name(aumid) {
-        return name;
-    }
-    if let Ok(name) = get_name_from_registry(aumid) {
-        return name;
-    }
+    let resolved_name = if let Ok(name) = get_display_name(aumid) {
+        name
+    } else if let Ok(name) = get_win32_app_name(aumid) {
+        name
+    } else if let Ok(name) = get_name_from_registry(aumid) {
+        name
+    } else {
+        if aumid.to_lowercase().ends_with(".exe") {
+            let name_without_ext = &aumid[..aumid.len() - 4];
+            let mut chars = name_without_ext.chars();
+            match chars.next() {
+                Some(f) => f.to_uppercase().collect::<String>() + chars.as_str(),
+                None => aumid.to_string(),
+            }
+        } else {
+            aumid.split('.').collect::<Vec<_>>().join(" ")
+        }
+    };
 
-    let fallback = aumid.split('.').collect::<Vec<_>>().join(" ");
-    NAME_CACHE.lock().unwrap().insert(aumid.to_string(), fallback.clone());
-    fallback
+    NAME_CACHE.lock().unwrap().insert(aumid.to_string(), resolved_name.clone());
+    resolved_name
 }
 
 fn get_display_name(aumid: &str) -> Result<String> {
@@ -48,10 +56,11 @@ fn get_display_name(aumid: &str) -> Result<String> {
 
     let app_info = AppInfo::GetFromAppUserModelId(&aumid_hstring)?;
     let display_info = app_info.DisplayInfo()?;
-
     let name = display_info.DisplayName()?.to_string();
-    NAME_CACHE.lock().unwrap().insert(aumid.to_string(), name.clone());
 
+    if name.is_empty() {
+        anyhow::bail!("Empty UWP display name");
+    }
     Ok(name)
 }
 
@@ -64,10 +73,9 @@ fn get_win32_app_name(aumid: &str) -> Result<String> {
             SHCreateItemFromParsingName(PCWSTR(path_hstring.as_ptr()), None)?;
 
         if let Ok(name) = shell_item.GetString(&PKEY_SOFTWARE_PRODUCTNAME) {
-            let s = name.to_string()?;
+            let s = name.to_string().unwrap_or_default();
             CoTaskMemFree(Some(name.as_ptr() as *const _));
             if !s.is_empty() {
-                NAME_CACHE.lock().unwrap().insert(aumid.to_string(), s.clone());
                 return Ok(s);
             }
         }
@@ -78,10 +86,8 @@ fn get_win32_app_name(aumid: &str) -> Result<String> {
         CoTaskMemFree(Some(display_pwstr.as_ptr() as *const _));
 
         if display_name.is_empty() {
-            anyhow::bail!("Empty display name");
+            anyhow::bail!("Empty shell folder item name");
         }
-
-        NAME_CACHE.lock().unwrap().insert(aumid.to_string(), display_name.clone());
 
         Ok(display_name)
     }
@@ -93,21 +99,22 @@ fn get_name_from_registry(aumid: &str) -> Result<String> {
 
     let name: String = key.get_value("DisplayName")?;
 
-    let display_name = if name.starts_with("@") { resolve_indirect_string(&name)? } else { name };
+    let display_name = if name.starts_with('@') { resolve_indirect_string(&name)? } else { name };
 
-    NAME_CACHE.lock().unwrap().insert(aumid.to_string(), display_name.to_string());
+    if display_name.is_empty() {
+        anyhow::bail!("Empty registry display name");
+    }
     Ok(display_name)
 }
 
 fn resolve_indirect_string(indirect: &str) -> Result<String> {
     let input = HSTRING::from(indirect);
-    let mut buf = [0u16; 256];
+    let mut buf = vec![0u16; 1024];
 
     unsafe {
-        SHLoadIndirectString(PCWSTR(input.as_ptr()), &mut buf, None)?;
+        SHLoadIndirectString(PCWSTR(input.as_ptr()), buf.as_mut(), None)?;
     }
 
     let end = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
-
     Ok(String::from_utf16_lossy(&buf[..end]))
 }
