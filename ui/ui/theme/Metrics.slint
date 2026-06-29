@@ -1,16 +1,56 @@
 import { Config } from "../global.slint";
 
 export global Metrics {
-    out property <length> border-width: 1px * Config.scale;
+    private property <float> scale: Config.scale;
+
+    out property <length> border-width: 1px * scale;
 
     // font sizes
-    out property <length> fs-100: 10pt * Config.scale;
+    out property <length> fs-100: 10pt * scale;
     out property <length> fs-120: fs-100 * 1.20;
     out property <length> fs-125: fs-100 * 1.25;
     out property <length> fs-150: fs-100 * 1.50;
 
     // radius
-    out property <length> radius-sm: 2px * Config.scale;
-    out property <length> radius-md: 4px * Config.scale;
-    out property <length> radius-lg: 16px * Config.scale;
+    out property <length> radius-sm: 2px * scale;
+    out property <length> radius-md: 4px * scale;
+    out property <length> radius-lg: 16px * scale;
+
+    // spacing
+    out property <length> spacing-xs: 2px * scale;
+    out property <length> spacing-sm: 4px * scale;
+    out property <length> spacing-md: 8px * scale;
+    out property <length> spacing-lg: 16px * scale;
+    out property <length> spacing-xl: 24px * scale;
+
+    // insets
+    out property <length> inset-xs: 3px * scale;
+    out property <length> inset-sm: 12.8px * scale;
+    out property <length> inset-md: 16px * scale;
+    out property <length> inset-lg: 24px * scale;
+
+    // icon sizes
+    out property <length> icon-xs: 10px * scale;
+    out property <length> icon-sm: 12px * scale;
+    out property <length> icon-md: 18px * scale;
+    out property <length> icon-lg: 32px * scale;
+    out property <length> icon-xl: 36px * scale;
+    out property <length> artwork-sm: 80px * scale;
+
+    // letter spacing
+    out property <length> letter-spacing: -0.2px * scale;
+
+    // controls
+    out property <length> timeline-height: 3px * scale;
+    out property <length> timeline-hitbox: 8px * scale;
+    out property <length> timeline-padding: 16px * scale;
+    out property <length> timeline-label-offset: 5px * scale;
+
+    out property <length> spectrum-bar-width: 2px * scale;
+    out property <length> spectrum-bar-height: 20px * scale;
+    out property <length> spectrum-bar-min-height: 4px * scale;
+
+    // shadows
+    out property <length> shadow-offset-y: 2px * scale;
+    out property <length> shadow-blur: 30px * scale;
 }

@@ -1,14 +1,14 @@
-import { IslandData, Config } from "../global.slint";
+import { IslandData } from "../global.slint";
 import { Metrics } from "../theme/Metrics.slint";
 import { Colors } from "../theme/Colors.slint";
 import { ElidedText } from "../components/ElidedText.slint";
 
 component CollapsedNotification inherits HorizontalLayout {
     alignment: start;
-    spacing: 1rem;
+    spacing: Metrics.spacing-lg;
 
     Rectangle {
-        private property <length> size: 32px * Config.scale;
+        private property <length> size: Metrics.icon-lg;
 
         horizontal-stretch: 0;
         height: size;
@@ -26,7 +26,7 @@ component CollapsedNotification inherits HorizontalLayout {
 
     VerticalLayout {
         alignment: center;
-        spacing: 4px;
+        spacing: Metrics.spacing-sm;
         y: (parent.height - self.height) / 2;
 
         ElidedText {
@@ -46,16 +46,16 @@ component CollapsedNotification inherits HorizontalLayout {
 
 component ExpandedNotification inherits VerticalLayout {
     alignment: start;
-    spacing: 1rem;
+    spacing: Metrics.spacing-lg;
 
     HorizontalLayout {
         width: parent.width;
         alignment: start;
-        spacing: 8px;
+        spacing: Metrics.spacing-md;
         vertical-stretch: 0;
 
         Rectangle {
-            private property <length> size: 18px * Config.scale;
+            private property <length> size: Metrics.icon-md;
 
             y: (parent.height - self.height) / 2;
 
@@ -79,13 +79,13 @@ component ExpandedNotification inherits VerticalLayout {
             font-size: Metrics.fs-100;
             font-weight: 500;
             overflow: elide;
-            letter-spacing: -0.2px;
+            letter-spacing: Metrics.letter-spacing;
         }
     }
 
     VerticalLayout {
         alignment: start;
-        spacing: 4px;
+        spacing: Metrics.spacing-sm;
 
         Text {
             vertical-stretch: 0;
@@ -95,7 +95,7 @@ component ExpandedNotification inherits VerticalLayout {
             font-weight: 600;
             color: Colors.text-primary;
             horizontal-alignment: left;
-            letter-spacing: -0.2px;
+            letter-spacing: Metrics.letter-spacing;
         }
 
         Text {
@@ -104,7 +104,7 @@ component ExpandedNotification inherits VerticalLayout {
             font-size: Metrics.fs-125;
             color: Colors.text-secondary;
             horizontal-alignment: left;
-            letter-spacing: -0.2px;
+            letter-spacing: Metrics.letter-spacing;
             wrap: word-wrap;
         }
     }

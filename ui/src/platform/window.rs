@@ -179,7 +179,7 @@ unsafe fn start_clickthrough_loop(
             GetWindowRect(hwnd, &mut rect).ok();
         }
 
-        let island_config = config.get().island;
+        let island_config = config.island();
 
         let (logical, has_active) = {
             let state = state.lock().unwrap();

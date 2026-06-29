@@ -1,7 +1,7 @@
 import { IslandData } from "../global.slint";
 import { Metrics } from "../theme/Metrics.slint";
 import { Colors } from "../theme/Colors.slint";
-import { Assets, Config } from "../global.slint";
+import { Assets } from "../global.slint";
 import { SpectrumBars } from "../components/SpectrumBars.slint";
 import { MediaControls } from "../components/MediaControls.slint";
 import { Timeline } from "../components/Timeline.slint";
@@ -36,11 +36,11 @@ component ExpandedMedia inherits VerticalLayout {
     HorizontalLayout {
         width: parent.width;
         alignment: start;
-        spacing: 8px;
+        spacing: Metrics.spacing-md;
         vertical-stretch: 0;
 
         Rectangle {
-            private property <length> size: 18px * Config.scale;
+            private property <length> size: Metrics.icon-md;
 
             y: (parent.height - self.height) / 2;
 
@@ -64,7 +64,7 @@ component ExpandedMedia inherits VerticalLayout {
             font-size: Metrics.fs-100;
             font-weight: 500;
             overflow: elide;
-            letter-spacing: -0.2px;
+            letter-spacing: Metrics.letter-spacing;
         }
     }
 
@@ -73,10 +73,10 @@ component ExpandedMedia inherits VerticalLayout {
 
         HorizontalLayout {
             height: parent.height;
-            spacing: 1.5rem;
+            spacing: Metrics.spacing-xl;
 
             Rectangle {
-                private property <length> size: 80px * Config.scale;
+                private property <length> size: Metrics.artwork-sm;
 
                 horizontal-stretch: 0;
                 width: size;
@@ -93,7 +93,7 @@ component ExpandedMedia inherits VerticalLayout {
 
             VerticalLayout {
                 alignment: center;
-                spacing: 4px;
+                spacing: Metrics.spacing-sm;
 
                 Text {
                     font-size: Metrics.fs-150;
@@ -101,7 +101,7 @@ component ExpandedMedia inherits VerticalLayout {
                     color: Colors.text-primary;
                     font-weight: 700;
                     horizontal-alignment: left;
-                    letter-spacing: -0.2px;
+                    letter-spacing: Metrics.letter-spacing;
                 }
 
                 Text {
@@ -109,7 +109,7 @@ component ExpandedMedia inherits VerticalLayout {
                     text: IslandData.media.album.is-empty ? "(unnamed album)" : IslandData.media.album;
                     color: Colors.text-primary;
                     horizontal-alignment: left;
-                    letter-spacing: -0.2px;
+                    letter-spacing: Metrics.letter-spacing;
                 }
 
                 Text {
@@ -117,7 +117,7 @@ component ExpandedMedia inherits VerticalLayout {
                     text: IslandData.media.artist.is-empty ? "(unnamed artist)" : IslandData.media.artist;
                     color: Colors.text-secondary;
                     horizontal-alignment: left;
-                    letter-spacing: -0.2px;
+                    letter-spacing: Metrics.letter-spacing;
                 }
             }
         }
@@ -126,7 +126,7 @@ component ExpandedMedia inherits VerticalLayout {
     VerticalLayout {
         width: parent.width;
         vertical-stretch: 0;
-        spacing: 4px;
+        spacing: Metrics.spacing-sm;
         alignment: center;
 
         Rectangle {
@@ -158,7 +158,7 @@ component ExpandedMedia inherits VerticalLayout {
                 text: format-ms(IslandData.media-position);
                 font-size: Metrics.fs-100;
                 color: Colors.text-secondary;
-                letter-spacing: -0.2px;
+                letter-spacing: Metrics.letter-spacing;
                 vertical-alignment: bottom;
                 horizontal-alignment: left;
             }
@@ -171,7 +171,7 @@ component ExpandedMedia inherits VerticalLayout {
                 text: format-ms(IslandData.media.duration-ms);
                 font-size: Metrics.fs-100;
                 color: Colors.text-secondary;
-                letter-spacing: -0.2px;
+                letter-spacing: Metrics.letter-spacing;
                 vertical-alignment: bottom;
                 horizontal-alignment: right;
             }

@@ -128,6 +128,8 @@ export component Island inherits Rectangle {
     }
 
     island := Rectangle {
+        opacity: collapsed && Config.completely-hidden ? 0 : 1;
+
         width: parent.width;
         height: parent.height - Config.y-offset;
         y: Config.y-offset;
@@ -138,9 +140,9 @@ export component Island inherits Rectangle {
         border-radius: radius;
         z: 1;
 
-        drop-shadow-color: Colors.island-shadow;
-        drop-shadow-blur: Colors.island-shadow-blur;
-        drop-shadow-offset-y: 2px;
+        drop-shadow-color: Config.shadows ? Colors.island-shadow : transparent;
+        drop-shadow-blur: Config.shadows ? Metrics.shadow-blur : 0;
+        drop-shadow-offset-y: Config.shadows ? Metrics.shadow-offset-y : 0;
 
         clip: true;
 
@@ -150,12 +152,12 @@ export component Island inherits Rectangle {
             width: parent.width;
             height: parent.height;
             
-            padding-left: 1.5rem;
-            padding-right: 1.5rem;
-            padding-top: IslandData.expanded ? 1.5rem : 0.8rem;
-            padding-bottom: IslandData.expanded ? 1.5rem : 0.8rem;
+            padding-left: Metrics.inset-lg;
+            padding-right: Metrics.inset-lg;
+            padding-top: IslandData.expanded ? Metrics.inset-lg : Metrics.inset-md;
+            padding-bottom: IslandData.expanded ? Metrics.inset-lg : Metrics.inset-md;
     
-            spacing: 1.5rem;
+            spacing: Metrics.spacing-xl;
 
             animate opacity {
                 duration: 150ms;

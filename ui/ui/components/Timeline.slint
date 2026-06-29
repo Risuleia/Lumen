@@ -2,7 +2,7 @@ import { IslandData } from "../global.slint";
 import { Metrics } from "../theme/Metrics.slint";
 
 export component Timeline inherits Rectangle {
-    height: 8px;
+    height: Metrics.timeline-hitbox;
 
     property <float> progress: IslandData.media.duration-ms > 0 
                                 ? IslandData.media-position * 1.0 / IslandData.media.duration-ms * 1.0
@@ -32,12 +32,12 @@ export component Timeline inherits Rectangle {
 
     Rectangle {
         x: clamp((parent.width * local-progress) - (self.width / 2), 0px, parent.width - self.width);
-        y: -(self.height) - 5px;
+        y: -(self.height) - Metrics.timeline-label-offset;
         z: 2;
         visible: ta.has-hover ? true : false;
 
         background: #fff;
-        border-width: 1px;
+        border-width: Metrics.border-width;
         border-radius: self.height / 2;
         horizontal-stretch: 0;
 
@@ -45,10 +45,10 @@ export component Timeline inherits Rectangle {
         height: layout.preferred-height;
 
         layout := HorizontalLayout {
-            padding-top: 3px;
-            padding-bottom: 3px;
-            padding-left: 1rem;
-            padding-right: 1rem;
+            padding-top: Metrics.inset-xs;
+            padding-bottom: Metrics.inset-xs;
+            padding-left: Metrics.inset-md;
+            padding-right: Metrics.inset-md;
             alignment: center;
             y: (parent.height - self.height) / 2;
 
@@ -56,7 +56,7 @@ export component Timeline inherits Rectangle {
                 text: format-ms(IslandData.media.duration-ms * local-progress);
                 font-size: Metrics.fs-100;
                 color: #000;
-                letter-spacing: -0.2px;
+                letter-spacing: Metrics.letter-spacing;
                 vertical-alignment: center;
                 horizontal-alignment: center;
                 font-weight: 550;
@@ -65,7 +65,7 @@ export component Timeline inherits Rectangle {
     }
 
     Rectangle {
-        height: 3px;
+        height: Metrics.inset-xs;
         width: parent.width;
         border-radius: self.height / 2;
         background: #ffffff65;
@@ -96,10 +96,12 @@ export component Timeline inherits Rectangle {
             x: 0;
             
             Rectangle {
+                private property <length> size: Metrics.icon-xs;
+
                 opacity: ta.has-hover ? 1 : 0;
     
-                height: 10px;
-                width: 10px;
+                height: size;
+                width: size;
                 border-radius: self.height / 2;
                 background: #fff;
     

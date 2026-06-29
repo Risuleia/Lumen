@@ -5,7 +5,7 @@ use lumen_core::{IslandCore, RuntimeState};
 use slint::{ComponentHandle, Weak};
 
 use crate::{
-    Assets, Config, IslandContent, IslandData, Shell, config::{ConfigHandle, init_config}, state::{ContentState, IslandState}, sync::{media_to_slint, notification_to_slint}
+    Assets, Config, IslandContent, IslandData, Shell, config::{ConfigHandle, ToastSuppression, init_config}, state::{ContentState, IslandState}, sync::{media_to_slint, notification_to_slint}
 };
 
 #[derive(Clone)]
@@ -13,7 +13,8 @@ pub struct Lumen {
     state: Arc<Mutex<IslandState>>,
     shell: Option<Weak<Shell>>,
     core: Arc<IslandCore>,
-    config: ConfigHandle
+    config: ConfigHandle,
+    toast_suppresion: Arc<Mutex<ToastSuppression>>
 }
 
 impl Lumen {
@@ -22,7 +23,8 @@ impl Lumen {
             state: Arc::new(Mutex::new(IslandState::new())),
             shell: None,
             core: Arc::new(IslandCore::new()),
-            config: init_config()
+            config: init_config(),
+            toast_suppresion: Arc::new(Mutex::new(ToastSuppression::new()))
         }
     }
 
@@ -36,6 +38,8 @@ impl Lumen {
         self.core.start();
 
         self.dispatch();
+
+        self.toast_suppresion.lock().unwrap().sync(self.config().notifications().suppress_native_toasts)?;
 
         if let Some(shell) = self.shell.as_ref().and_then(|s| s.upgrade()) {
             shell.run()?;
@@ -102,17 +106,19 @@ impl Lumen {
 
     fn sync_shell(&self) {
         if let Some(shell) = &self.shell.as_ref().and_then(|s| s.upgrade()) {
-            let cfg = self.config.get();
+            let cfg = &self.config;
 
             let config_global = shell.global::<Config>();
-            config_global.set_scale(cfg.island.scale as f32);
-            config_global.set_y_offset(cfg.island.y_offset as f32);
-            config_global.set_notification_timeout_ms(cfg.notifications.timeout_ms as i32);
+            config_global.set_scale(cfg.island().scale as f32);
+            config_global.set_y_offset(cfg.island().y_offset as f32);
+            config_global.set_completely_hidden(cfg.island().completely_hidden);
+            config_global.set_shadows(cfg.island().shadows);
+            config_global.set_notification_timeout_ms(cfg.notifications().timeout_ms as i32);
 
             let state = self.state.lock().unwrap();
 
             let content = state.content.clone();
-            let bounds = state.bounds(&cfg.island);
+            let bounds = state.bounds(&cfg.island());
             let mic = state.mic;
             let camera = state.camera;
             let expanded = state.expanded;

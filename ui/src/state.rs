@@ -42,11 +42,11 @@ impl IslandState {
             y: if base.y < 0 {
                 -((base.y.saturating_abs() as f64 * scale).round() as i32)
             } else {
-                (island_config.y_offset as f64 * scale).round() as i32
+                island_config.y_offset as i32
             },
             width: (base.width as f64 * scale).round() as i32,
             height: (base.height as f64 * scale).round() as i32,
-            radius: (base.radius as f64 * scale).round() as i32
+            radius: (base.radius as f64 * scale).round() as i32,
         }
     }
 }

@@ -1,8 +1,8 @@
-import { Config } from "../global.slint";
+import { Metrics } from "../theme/Metrics.slint";
 export component Indicator inherits Rectangle {
     in property <color> indicator-color;
 
-    private property <length> size: 12px * Config.scale;
+    private property <length> size: Metrics.icon-sm;
 
     height: size;
     width: size;

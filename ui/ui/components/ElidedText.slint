@@ -1,3 +1,4 @@
+import { Metrics } from "../theme/Metrics.slint";
 
 export component ElidedText inherits Rectangle {
     in property <length> font-size;
@@ -6,7 +7,7 @@ export component ElidedText inherits Rectangle {
     in property <string> text;
     in property <TextWrap> wrap: no-wrap;
 
-    height: t.font-size;
+    height: t.font-size + Metrics.spacing-sm;
     clip: true;
 
     VerticalLayout {
@@ -22,7 +23,7 @@ export component ElidedText inherits Rectangle {
             font-weight: font-weight;
             horizontal-alignment: left;
             vertical-alignment: center;
-            letter-spacing: -0.2px;
+            letter-spacing: Metrics.letter-spacing;
             horizontal-stretch: 0;
         }
     }

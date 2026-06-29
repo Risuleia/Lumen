@@ -1,10 +1,11 @@
-import { IslandData, Assets, Config } from "../global.slint";
+import { IslandData, Assets } from "../global.slint";
+import { Metrics } from "../theme/Metrics.slint";
 
 export component MediaControls inherits HorizontalLayout {
-    spacing: 1rem;
+    spacing: Metrics.spacing-lg;
     alignment: center;
 
-    property <length> size: 36px * Config.scale;
+    property <length> size: Metrics.icon-xl;
     
     prev := Rectangle {
         width: size; 
