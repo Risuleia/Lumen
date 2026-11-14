@@ -61,7 +61,7 @@ pub struct ConfigHandle {
 }
 
 impl ConfigHandle {
-    fn set(&self, config: Config) {
+    fn _set(&self, config: Config) {
         *self.inner.write().unwrap() = config;
     }
 
