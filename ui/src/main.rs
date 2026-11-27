@@ -4,15 +4,17 @@ use anyhow::{Result, anyhow};
 use single_instance::SingleInstance;
 
 use crate::{
-    app::Lumen, platform::{initialize_tray, initialize_window}
+    app::Lumen,
+    geometry::{SHELL_HEIGHT, SHELL_WIDTH},
+    platform::{initialize_tray, initialize_window},
 };
 
 mod app;
+mod config;
 mod geometry;
 mod platform;
 mod state;
 mod sync;
-mod config;
 
 slint::include_modules!();
 
@@ -35,15 +37,9 @@ fn main() -> Result<()> {
 
     let (_tray, _tray_timer) = initialize_tray();
 
-    initialize_window(
-        &shell, 
-        state.clone(), 
-        app.config(), 
-        move || weak
-            .upgrade()
-            .map(|s| s.global::<IslandData>().get_collapsed())
-            .unwrap_or(false)
-    );
+    initialize_window(&shell, SHELL_WIDTH, SHELL_HEIGHT, state.clone(), app.config(), move || {
+        weak.upgrade().map(|s| s.global::<IslandData>().get_collapsed()).unwrap_or(false)
+    });
 
     app.start(&shell)?;
 

@@ -9,12 +9,17 @@ use i_slint_backend_winit::{
 };
 use slint::ComponentHandle;
 use windows::Win32::{
-    Foundation::{HWND, RECT},
-    Graphics::Gdi::UpdateWindow,
+    Foundation::{COLORREF, HWND, RECT},
+    Graphics::Gdi::{
+        GetMonitorInfoW, MONITOR_DEFAULTTOPRIMARY, MONITORINFO, MonitorFromWindow, UpdateWindow,
+    },
     UI::{
         HiDpi::GetDpiForWindow,
         WindowsAndMessaging::{
-            GWL_EXSTYLE, GWL_STYLE, GetSystemMetrics, GetWindowLongPtrW, GetWindowRect, HWND_TOPMOST, LWA_ALPHA, SM_CXSCREEN, SM_CYSCREEN, SW_HIDE, SW_SHOWNOACTIVATE, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetLayeredWindowAttributes, SetWindowLongPtrW, SetWindowPos, ShowWindow, WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_POPUP
+            GWL_EXSTYLE, GWL_STYLE, GetWindowLongPtrW, GetWindowRect, HWND_TOPMOST, LWA_ALPHA,
+            SW_HIDE, SW_SHOWNOACTIVATE, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
+            SetLayeredWindowAttributes, SetWindowLongPtrW, SetWindowPos, ShowWindow,
+            WS_EX_APPWINDOW, WS_EX_LAYERED, WS_EX_TOOLWINDOW, WS_POPUP,
         },
     },
 };
@@ -30,10 +35,15 @@ use crate::{
 };
 
 static WINDOW_HWND: OnceLock<isize> = OnceLock::new();
-static TOPMOST_REASSERT_INTERVAL: u32 = 60;
+
+const TICK_MS: u64 = 16;
+const TOPMOST_REASSERT_TICKS: u32 = 60;
+const FULLSCREEN_CHECK_TICKS: u32 = 16;
 
 pub fn initialize_window<T>(
     component: &T,
+    width: i32,
+    height: i32,
     state: Arc<Mutex<IslandState>>,
     config: ConfigHandle,
     get_collapsed: impl Fn() -> bool + Send + 'static,
@@ -46,7 +56,11 @@ pub fn initialize_window<T>(
         if let Some(component) = weak.upgrade() {
             with_hwnd(&component, |hwnd| unsafe {
                 configure_window(hwnd);
-                position_fullscreen(hwnd);
+                position_top_center(
+                    hwnd,
+                    width * config.island().scale as i32,
+                    height * config.island().scale as i32,
+                );
 
                 WINDOW_HWND.set(hwnd.0 as isize).ok();
                 set_clickthrough(hwnd, true);
@@ -88,12 +102,7 @@ unsafe fn configure_window(hwnd: HWND) {
 
         SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex_style);
 
-        let _ = SetLayeredWindowAttributes(
-            hwnd,
-            windows::Win32::Foundation::COLORREF(0),
-            255,
-            LWA_ALPHA,
-        );
+        let _ = SetLayeredWindowAttributes(hwnd, COLORREF(0), 255, LWA_ALPHA);
 
         SetWindowPos(
             hwnd,
@@ -108,21 +117,38 @@ unsafe fn configure_window(hwnd: HWND) {
     }
 }
 
-unsafe fn position_fullscreen(hwnd: HWND) {
+unsafe fn position_top_center(hwnd: HWND, logical_w: i32, logical_h: i32) {
     unsafe {
-        let screen_width = GetSystemMetrics(SM_CXSCREEN);
-        let screen_height = GetSystemMetrics(SM_CYSCREEN);
+        let monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
+        let mut mi =
+            MONITORINFO { cbSize: std::mem::size_of::<MONITORINFO>() as u32, ..Default::default() };
+        let _ = GetMonitorInfoW(monitor, &mut mi);
 
-        SetWindowPos(
+        let scale = GetDpiForWindow(hwnd) as f64 / 96.0;
+        let w = (logical_w as f64 * scale).round() as i32;
+        let h = (logical_h as f64 * scale).round() as i32;
+
+        // rcMonitor: island overlaps the taskbar area if the taskbar is on top.
+        // Use rcWork instead if you want it to sit below the taskbar.
+        let mon_w = mi.rcMonitor.right - mi.rcMonitor.left;
+        let x = mi.rcMonitor.left + (mon_w - w) / 2;
+        let y = mi.rcMonitor.top;
+
+        SetWindowPos(hwnd, Some(HWND_TOPMOST), x, y, w, h, SWP_NOACTIVATE).ok();
+    }
+}
+
+unsafe fn reassert_topmost(hwnd: HWND) {
+    unsafe {
+        let _ = SetWindowPos(
             hwnd,
             Some(HWND_TOPMOST),
             0,
             0,
-            screen_width,
-            screen_height,
-            SWP_NOACTIVATE,
-        )
-        .ok();
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+        );
     }
 }
 
@@ -136,66 +162,66 @@ unsafe fn start_clickthrough_loop(
 
     let mut clickthrough_enabled = true;
     let mut hidden_for_fullscreen = false;
-    let mut topmost_counter: u32 = 0;
+    let mut fullscreen = false;
 
-    timer.start(slint::TimerMode::Repeated, Duration::from_millis(16), move || {
-        let fullscreen = is_foreground_fullscreen(hwnd);
+    let mut topmost_counter: u32 = 0;
+    let mut fullscreen_counter: u32 = FULLSCREEN_CHECK_TICKS;
+
+    timer.start(slint::TimerMode::Repeated, Duration::from_millis(TICK_MS), move || {
+        fullscreen_counter += 1;
+        if fullscreen_counter >= FULLSCREEN_CHECK_TICKS {
+            fullscreen_counter = 0;
+            fullscreen = is_foreground_fullscreen(hwnd);
+        }
+
         if fullscreen {
             if !hidden_for_fullscreen {
                 let _ = unsafe { ShowWindow(hwnd, SW_HIDE) };
                 hidden_for_fullscreen = true;
             }
-
             return;
         }
 
         if hidden_for_fullscreen {
             let _ = unsafe { ShowWindow(hwnd, SW_SHOWNOACTIVATE) };
             hidden_for_fullscreen = false;
+            unsafe { reassert_topmost(hwnd) };
         }
 
         topmost_counter += 1;
-        if topmost_counter >= TOPMOST_REASSERT_INTERVAL {
+        if topmost_counter >= TOPMOST_REASSERT_TICKS {
             topmost_counter = 0;
-            unsafe {
-                SetWindowPos(
-                    hwnd,
-                    Some(HWND_TOPMOST),
-                    0,
-                    0,
-                    0,
-                    0,
-                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
-                )
-                .ok();
-            }
-        }
-
-        let (mx, my) = cursor_position();
-
-        let mut rect = RECT::default();
-
-        unsafe {
-            GetWindowRect(hwnd, &mut rect).ok();
+            unsafe { reassert_topmost(hwnd) };
         }
 
         let island_config = config.island();
 
-        let (logical, has_active) = {
-            let state = state.lock().unwrap();
-            (
-                state.bounds(&island_config),
-                state.mic || state.camera || state.content != ContentState::Idle,
-            )
+        let state_guard = match state.try_lock() {
+            Ok(lock) => lock,
+            Err(_) => return,
         };
+
+        let logical = state_guard.bounds(&island_config);
+        let has_active =
+            state_guard.mic || state_guard.camera || state_guard.content != ContentState::Idle;
+
+        drop(state_guard);
+
         let collapsed = get_collapsed();
+
+        // --- Hit test ---
+        let (mx, my) = cursor_position();
+
+        let mut rect = RECT::default();
+        unsafe {
+            let _ = GetWindowRect(hwnd, &mut rect);
+        }
 
         let dpi = unsafe { GetDpiForWindow(hwnd) };
         let scale_factor = dpi as f64 / 96.0;
         let bounds = logical.physical(scale_factor);
 
         let window_width = rect.right - rect.left;
-
         let island_x = (window_width - bounds.width) / 2;
 
         let island_left = rect.left + island_x;
