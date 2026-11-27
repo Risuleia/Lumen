@@ -5,7 +5,10 @@ use lumen_core::{IslandCore, RuntimeState};
 use slint::{ComponentHandle, Weak};
 
 use crate::{
-    Assets, Config, IslandContent, IslandData, Shell, config::{ConfigHandle, ToastSuppression, init_config}, state::{ContentState, IslandState}, sync::{media_to_slint, notification_to_slint}
+    Assets, Config, IslandContent, IslandData, Shell,
+    config::{ConfigHandle, ToastSuppression, init_config},
+    state::{ContentState, IslandState},
+    sync::{media_to_slint, notification_to_slint},
 };
 
 #[derive(Clone)]
@@ -14,7 +17,7 @@ pub struct Lumen {
     shell: Option<Weak<Shell>>,
     core: Arc<IslandCore>,
     config: ConfigHandle,
-    toast_suppresion: Arc<Mutex<ToastSuppression>>
+    toast_suppresion: Arc<Mutex<ToastSuppression>>,
 }
 
 impl Lumen {
@@ -24,7 +27,7 @@ impl Lumen {
             shell: None,
             core: Arc::new(IslandCore::new()),
             config: init_config(),
-            toast_suppresion: Arc::new(Mutex::new(ToastSuppression::new()))
+            toast_suppresion: Arc::new(Mutex::new(ToastSuppression::new())),
         }
     }
 
@@ -39,9 +42,14 @@ impl Lumen {
 
         self.dispatch();
 
-        self.toast_suppresion.lock().unwrap().sync(self.config().notifications().suppress_native_toasts)?;
+        self.toast_suppresion
+            .lock()
+            .unwrap()
+            .sync(self.config().notifications().suppress_native_toasts)?;
 
         if let Some(shell) = self.shell.as_ref().and_then(|s| s.upgrade()) {
+            shell.window().on_close_requested(|| slint::CloseRequestResponse::KeepWindowShown);
+
             shell.run()?;
             return Ok(());
         }
