@@ -10,6 +10,7 @@ use crate::{
 };
 
 mod app;
+mod config;
 mod geometry;
 mod platform;
 mod state;
@@ -36,7 +37,7 @@ fn main() -> Result<()> {
 
     let (_tray, _tray_timer) = initialize_tray();
 
-    initialize_window(&shell, SHELL_WIDTH, SHELL_HEIGHT, state.clone(), move || {
+    initialize_window(&shell, SHELL_WIDTH, SHELL_HEIGHT, state.clone(), app.config(), move || {
         weak.upgrade().map(|s| s.global::<IslandData>().get_collapsed()).unwrap_or(false)
     });
 

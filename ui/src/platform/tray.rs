@@ -30,14 +30,18 @@ pub fn initialize_tray() -> (TrayIcon, slint::Timer) {
     let (tray_img, menu_img) = load_icon();
 
     let header = IconMenuItem::new("Lumen", true, Some(menu_img), None);
+    let open_config = MenuItem::new("Open Config", true, None);
     let check_updates = MenuItem::new("Check for Updates", true, None);
     let separator = PredefinedMenuItem::separator();
     let quit = MenuItem::new("Quit Lumen", true, None);
 
     let check_updates_id = check_updates.id().clone();
+    let open_config_id = open_config.id().clone();
     let quit_id = quit.id().clone();
 
     menu.append(&header).unwrap();
+    menu.append(&separator).unwrap();
+    menu.append(&open_config).unwrap();
     menu.append(&separator).unwrap();
     menu.append(&check_updates).unwrap();
     menu.append(&separator).unwrap();
@@ -99,6 +103,10 @@ pub fn initialize_tray() -> (TrayIcon, slint::Timer) {
         if let Ok(event) = tray_icon::menu::MenuEvent::receiver().try_recv() {
             if event.id == quit_id {
                 let _ = slint::quit_event_loop();
+            } else if event.id == open_config_id {
+                let _ = std::process::Command::new("explorer")
+                    .arg(crate::config::config_path())
+                    .spawn();
             } else if event.id == check_updates_id {
                 match current_state {
                     UpdateState::Idle | UpdateState::Failed => {

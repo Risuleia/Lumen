@@ -1,0 +1,18 @@
+# Lumen configuration
+# Save this file and restart Lumen for changes to take effect.
+
+[island]
+# Size multiplier for the island (1.0 = default size)
+scale = 1.0
+# Vertical offset from the top of the screen, in pixels
+y_offset = 0.0
+# Hide the island completely, even when something is playing
+completely_hidden = false
+# Draw a drop shadow under the island
+shadows = true
+
+[notifications]
+# How long a notification stays visible, in milliseconds
+timeout_ms = 5000
+# Hide the native Windows notification toasts while Lumen is running
+suppress_native_toasts = true

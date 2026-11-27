@@ -5,13 +5,15 @@ import { ElidedText } from "../components/ElidedText.slint";
 
 component CollapsedNotification inherits HorizontalLayout {
     alignment: start;
-    spacing: 1rem;
+    spacing: Metrics.spacing-lg;
 
     Rectangle {
+        private property <length> size: Metrics.icon-lg;
+
         horizontal-stretch: 0;
-        height: 32px;
-        width: 32px;
-        border-radius: 2px;
+        height: size;
+        width: size;
+        border-radius: Metrics.radius-sm;
         clip: true;
         y: (parent.height - self.height) / 2;
 
@@ -24,7 +26,7 @@ component CollapsedNotification inherits HorizontalLayout {
 
     VerticalLayout {
         alignment: center;
-        spacing: 4px;
+        spacing: Metrics.spacing-sm;
         y: (parent.height - self.height) / 2;
 
         ElidedText {
@@ -44,20 +46,22 @@ component CollapsedNotification inherits HorizontalLayout {
 
 component ExpandedNotification inherits VerticalLayout {
     alignment: start;
-    spacing: 1rem;
+    spacing: Metrics.spacing-lg;
 
     HorizontalLayout {
         width: parent.width;
         alignment: start;
-        spacing: 8px;
+        spacing: Metrics.spacing-md;
         vertical-stretch: 0;
 
         Rectangle {
+            private property <length> size: Metrics.icon-md;
+
             y: (parent.height - self.height) / 2;
 
-            height: 18px;
-            width: 18px;
-            border-radius: 2px;
+            height: size;
+            width: size;
+            border-radius: Metrics.radius-sm;
             clip: true;
 
             Image {
@@ -75,23 +79,22 @@ component ExpandedNotification inherits VerticalLayout {
             font-size: Metrics.fs-100;
             font-weight: 500;
             overflow: elide;
-            letter-spacing: -0.2px;
+            letter-spacing: Metrics.letter-spacing;
         }
     }
 
     VerticalLayout {
         alignment: start;
-        spacing: 4px;
+        spacing: Metrics.spacing-sm;
 
         Text {
             vertical-stretch: 0;
             text: IslandData.notification.title;
-            overflow: clip;
             font-size: Metrics.fs-150;
             font-weight: 600;
             color: Colors.text-primary;
             horizontal-alignment: left;
-            letter-spacing: -0.2px;
+            letter-spacing: Metrics.letter-spacing;
         }
 
         Text {
@@ -100,7 +103,7 @@ component ExpandedNotification inherits VerticalLayout {
             font-size: Metrics.fs-125;
             color: Colors.text-secondary;
             horizontal-alignment: left;
-            letter-spacing: -0.2px;
+            letter-spacing: Metrics.letter-spacing;
             wrap: word-wrap;
         }
     }

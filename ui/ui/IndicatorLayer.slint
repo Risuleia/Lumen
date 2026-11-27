@@ -1,4 +1,5 @@
 import { IslandData } from "global.slint";
+import { Metrics } from "theme/Metrics.slint";
 import { Indicator } from "components/Indicator.slint";
 
 component MicIndicator inherits Indicator {
@@ -15,7 +16,7 @@ export component IndicatorLayer inherits Rectangle {
     HorizontalLayout {
         width: parent.width;
         height: parent.height;
-        spacing: 8px;
+        spacing: Metrics.spacing-md;
 
         if IslandData.mic: MicIndicator {
             y: (parent.height - self.height) / 2;

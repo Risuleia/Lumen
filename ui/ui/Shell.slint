@@ -1,7 +1,7 @@
 import { Island } from "Island.slint";
-import { IslandData, Assets } from "global.slint";
+import { IslandData, Assets, Config } from "global.slint";
 
-export { IslandData, Assets }
+export { IslandData, Assets, Config }
 
 import "../../assets/fonts/Satoshi-Light.otf";
 
@@ -12,6 +12,7 @@ export component Shell inherits Window {
 
     default-font-family: "Satoshi Light";
     default-font-weight: 400;
+    default-font-size: 16pt;
     
     in property <length> island-width;
     in property <length> island-height;
@@ -23,7 +24,7 @@ export component Shell inherits Window {
 
     Island {
         width: island-width;
-        height: island-height + 8px;
+        height: island-height + Config.y-offset;
 
         radius: island-radius;
 
@@ -34,7 +35,6 @@ export component Shell inherits Window {
 
     Timer {
         interval: 33ms;
-        running: true;
 
         triggered => {
             root.tick()

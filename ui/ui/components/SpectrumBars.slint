@@ -1,16 +1,22 @@
 import { IslandData } from "../global.slint";
+import { Metrics } from "../theme/Metrics.slint";
 
 export component SpectrumBars inherits HorizontalLayout {
     horizontal-stretch: 0;
-    spacing: 2px;
+    spacing: Metrics.spacing-xs;
 
     for band[i] in IslandData.spectrum: Rectangle {
-        width: 2px;
-        height: max(4px, band * 20px);
+        private property <length> size: max(
+            Metrics.spectrum-bar-min-height, 
+            band * Metrics.spectrum-bar-height
+        );
+
+        width: Metrics.spectrum-bar-width;
+        height: size;
 
         y: (parent.height - self.height) / 2;
 
-        border-radius: 2px;
+        border-radius: self.width / 2;
 
         background: hsv(
             80 + (((i * 1.0 - 11.5).abs() / 11.5) * 100.0),

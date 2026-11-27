@@ -5,6 +5,9 @@ pub mod icon;
 pub mod name;
 pub mod simd_audio;
 
+pub fn config_dir() -> PathBuf {
+    dirs::config_dir().unwrap().join("Lumen")
+}
 pub fn cache_dir() -> PathBuf {
     dirs::cache_dir().unwrap().join("Lumen")
 }
