@@ -4,6 +4,9 @@ pub mod artwork;
 pub mod icon;
 pub mod name;
 
+pub fn config_dir() -> PathBuf {
+    dirs::config_dir().unwrap().join("Lumen")
+}
 pub fn cache_dir() -> PathBuf {
     dirs::cache_dir().unwrap().join("Lumen")
 }
