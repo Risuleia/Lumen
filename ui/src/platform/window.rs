@@ -128,8 +128,6 @@ unsafe fn position_top_center(hwnd: HWND, logical_w: i32, logical_h: i32) {
         let w = (logical_w as f64 * scale).round() as i32;
         let h = (logical_h as f64 * scale).round() as i32;
 
-        // rcMonitor: island overlaps the taskbar area if the taskbar is on top.
-        // Use rcWork instead if you want it to sit below the taskbar.
         let mon_w = mi.rcMonitor.right - mi.rcMonitor.left;
         let x = mi.rcMonitor.left + (mon_w - w) / 2;
         let y = mi.rcMonitor.top;
@@ -210,6 +208,7 @@ unsafe fn start_clickthrough_loop(
         let collapsed = get_collapsed();
 
         let (mx, my) = cursor_position();
+
         let mut rect = RECT::default();
         unsafe {
             let _ = GetWindowRect(hwnd, &mut rect);
@@ -217,7 +216,7 @@ unsafe fn start_clickthrough_loop(
 
         let dpi = unsafe { GetDpiForWindow(hwnd) };
         let scale_factor = dpi as f64 / 96.0;
-        let bounds = logical_bounds.physical(scale_factor);
+        let bounds = logical.physical(scale_factor);
 
         let window_width = rect.right - rect.left;
         let island_x = (window_width - bounds.width) / 2;
@@ -225,7 +224,7 @@ unsafe fn start_clickthrough_loop(
         let island_left = rect.left + island_x;
         let island_top = rect.top
             + if collapsed {
-                ((-(logical_bounds.height - 10)) as f64 * scale_factor).round() as i32
+                ((-(logical.height - 10)) as f64 * scale_factor).round() as i32
             } else {
                 0
             };
