@@ -2920,7 +2920,7 @@ dependencies = [
 
 [[package]]
 name = "lumen"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "futures",
@@ -2941,7 +2941,7 @@ dependencies = [
 
 [[package]]
 name = "lumen-core"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "async-trait",
