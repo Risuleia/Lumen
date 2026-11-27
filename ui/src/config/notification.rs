@@ -1,16 +1,15 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use windows_core::w;
 use windows::Win32::System::Registry::{
-    RegCloseKey, RegGetValueW, RegOpenKeyExW, RegSetKeyValueW,
-    HKEY, HKEY_CURRENT_USER, KEY_QUERY_VALUE, RRF_RT_REG_DWORD,
+    HKEY, HKEY_CURRENT_USER, KEY_QUERY_VALUE, RRF_RT_REG_DWORD, RegCloseKey, RegGetValueW,
+    RegOpenKeyExW, RegSetKeyValueW,
 };
+use windows_core::w;
 
 const SUBKEY: windows::core::PCWSTR =
     w!("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings");
 
-const VALUE: windows::core::PCWSTR =
-    w!("NOC_GLOBAL_SETTING_TOASTS_ENABLED");
+const VALUE: windows::core::PCWSTR = w!("NOC_GLOBAL_SETTING_TOASTS_ENABLED");
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -33,23 +32,16 @@ impl Default for NotificationConfig {
 
 pub struct ToastSuppression {
     original: Option<u32>,
-    active: bool
+    active: bool,
 }
 
 impl ToastSuppression {
     pub fn new() -> Self {
-        Self {
-            original: None,
-            active: false,
-        }
+        Self { original: None, active: false }
     }
 
     pub fn sync(&mut self, enabled: bool) -> Result<()> {
-        if enabled {
-            self.enable()
-        } else {
-            self.disable()
-        }
+        if enabled { self.enable() } else { self.disable() }
     }
 
     fn enable(&mut self) -> Result<()> {
@@ -99,14 +91,7 @@ fn read_value() -> Result<u32> {
     unsafe {
         let mut key = HKEY::default();
 
-        RegOpenKeyExW(
-            HKEY_CURRENT_USER,
-            SUBKEY,
-            Some(0),
-            KEY_QUERY_VALUE,
-            &mut key,
-        )
-        .ok()?;
+        RegOpenKeyExW(HKEY_CURRENT_USER, SUBKEY, Some(0), KEY_QUERY_VALUE, &mut key).ok()?;
 
         let mut value: u32 = 1;
         let mut size = std::mem::size_of::<u32>() as u32;

@@ -1,13 +1,18 @@
-use std::{path::PathBuf, sync::{Arc, RwLock}};
+use std::{
+    path::PathBuf,
+    sync::{Arc, RwLock},
+};
 
-use lumen_core::cache_dir;
+use lumen_core::config_dir;
 use serde::{Deserialize, Serialize};
 
-mod notification;
 mod island;
+mod notification;
 
-pub use notification::{NotificationConfig, ToastSuppression};
 pub use island::IslandConfig;
+pub use notification::{NotificationConfig, ToastSuppression};
+
+const DEFAULT_CONFIG: &str = include_str!("../../../assets/default_config.toml");
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -16,19 +21,18 @@ pub struct Config {
     notifications: NotificationConfig,
 }
 
-fn config_path() -> PathBuf {
-    cache_dir().join("config.toml")
+pub fn config_path() -> PathBuf {
+    config_dir().join("config.toml")
 }
 
 impl Config {
     pub fn load() -> Self {
         let path = config_path();
-        std::fs::create_dir_all(cache_dir()).ok();
+        std::fs::create_dir_all(config_dir()).ok();
 
         let Ok(contents) = std::fs::read_to_string(&path) else {
-            let default = Config::default();
-            default.write_default(&path);
-            return default;
+            std::fs::write(&path, DEFAULT_CONFIG).ok();
+            return Config::default();
         };
 
         match toml::from_str::<Config>(&contents) {
@@ -37,13 +41,6 @@ impl Config {
                 eprintln!("[Config] Failed to parse config.toml: {e}. Using defaults...");
                 Config::default()
             }
-        }
-    }
-
-    fn write_default(&self, path: &PathBuf) {
-        std::fs::create_dir_all(cache_dir()).ok();
-        if let Ok(toml_str) = toml::to_string_pretty(self) {
-            std::fs::write(path, toml_str).ok();
         }
     }
 
@@ -79,4 +76,15 @@ pub fn init_config() -> ConfigHandle {
     let handle = ConfigHandle { inner: Arc::new(RwLock::new(initial)) };
 
     handle
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_template_matches_defaults() {
+        let parsed: Config = toml::from_str(DEFAULT_CONFIG).unwrap();
+        assert_eq!(toml::to_string(&parsed).unwrap(), toml::to_string(&Config::default()).unwrap());
+    }
 }

@@ -6,7 +6,7 @@ pub struct IslandConfig {
     pub scale: f64,
     pub y_offset: u64,
     pub shadows: bool,
-    pub completely_hidden: bool
+    pub completely_hidden: bool,
 }
 
 impl IslandConfig {
@@ -18,11 +18,6 @@ impl IslandConfig {
 
 impl Default for IslandConfig {
     fn default() -> Self {
-        Self { 
-            scale: 1.0, 
-            y_offset: 8, 
-            shadows: true,
-            completely_hidden: false
-        }
+        Self { scale: 1.0, y_offset: 8, shadows: true, completely_hidden: false }
     }
 }
