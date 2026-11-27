@@ -172,8 +172,6 @@ export component Island inherits Rectangle {
     }
 
     ta := TouchArea {
-        width: parent.width;
-        height: parent.height;
         z: 0;
 
         changed has-hover => {
@@ -191,9 +189,6 @@ export component Island inherits Rectangle {
     }
     
     fs := FocusScope {
-        width: parent.width;
-        height: parent.height;
-        
         focus-changed-event(_) => {
             if (!self.has-focus && IslandData.expanded) {
                 IslandData.action("expand", "false");
