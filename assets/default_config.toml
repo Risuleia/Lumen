@@ -5,7 +5,7 @@
 # Size multiplier for the island (1.0 = default size)
 scale = 1.0
 # Vertical offset from the top of the screen, in pixels
-y_offset = 0.0
+y_offset = 8
 # Hide the island completely, even when something is playing
 completely_hidden = false
 # Draw a drop shadow under the island
